@@ -239,9 +239,13 @@ export const App: React.FC = () => {
     description: string;
     project_path: string;
     env_vars: Record<string, string>;
+    steps: PipelineStep[];
   }) => {
     if (editingProject) {
       const updated = await api.updateProject(editingProject.id, data);
+      if (data.steps) {
+        await api.saveSteps(editingProject.id, data.steps);
+      }
       setSelectedProject(updated);
     } else {
       const created = await api.createProject(data);
@@ -254,22 +258,6 @@ export const App: React.FC = () => {
     if (!confirm('Are you sure you want to delete this project and all its pipeline steps?')) return;
     await api.deleteProject(id);
     if (selectedProjectId === id) setSelectedProjectId(null);
-    loadProjects();
-  };
-
-  const handleAddSelfProject = async () => {
-    const isWindows = navigator.userAgent.includes('Windows');
-    await api.createProject({
-      name: 'Varex Hub (Self-Deploy)',
-      description: 'Self-deploying continuous deployment workflow for Varex itself',
-      project_path: isWindows ? 'D:\\varex' : '/var/www/varex',
-      steps: [
-        { name: 'Git Pull', command: 'git pull origin main', is_enabled: true, continue_on_error: false },
-        { name: 'Build Client', command: 'npm run build:client', is_enabled: true, continue_on_error: false },
-        { name: 'Build Server', command: 'npm run build:server', is_enabled: true, continue_on_error: false },
-        { name: 'Restart Service', command: 'echo "Varex updated successfully!"', is_enabled: true, continue_on_error: false },
-      ],
-    });
     loadProjects();
   };
 
@@ -348,15 +336,6 @@ export const App: React.FC = () => {
                   </div>
 
                   <div className="flex items-center gap-2.5">
-                    {projects.length === 0 && (
-                      <button
-                        onClick={handleAddSelfProject}
-                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors"
-                      >
-                        <Sparkles className="w-4 h-4 text-cyan-400" /> Add Self-Deploy Template
-                      </button>
-                    )}
-
                     <button
                       onClick={() => {
                         setEditingProject(null);

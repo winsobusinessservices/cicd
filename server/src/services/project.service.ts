@@ -103,14 +103,6 @@ export class ProjectService {
     // If initial steps provided, save them
     if (data.steps && data.steps.length > 0) {
       this.savePipelineSteps(projectId, data.steps);
-    } else {
-      // Create sensible default starter steps
-      const defaultSteps: StepInput[] = [
-        { name: 'Git Pull', command: 'git pull origin main' },
-        { name: 'Install Dependencies', command: 'npm install' },
-        { name: 'Build Project', command: 'npm run build' }
-      ];
-      this.savePipelineSteps(projectId, defaultSteps);
     }
 
     return this.getProjectById(projectId);
