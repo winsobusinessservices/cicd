@@ -149,8 +149,18 @@ export const api = {
     description?: string;
     project_path?: string;
     env_vars?: Record<string, string>;
+    sudoPassword?: string;
   }) =>
     request<Project>(`/projects/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  updateProjectEnv: (id: number, data: {
+    env_vars: Record<string, string>;
+    sudoPassword: string;
+  }) =>
+    request<{ message: string; project: Project }>(`/projects/${id}/env`, {
       method: 'PUT',
       body: JSON.stringify(data),
     }),

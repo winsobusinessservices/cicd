@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import path from 'path';
 import { ProjectService } from '../services/project.service.js';
 import { AuditService } from '../services/audit.service.js';
+import { AuthService } from '../services/auth.service.js';
 import { requireAuth, AuthenticatedRequest } from '../middleware/auth.middleware.js';
 import { requireMainAdmin } from '../middleware/role.middleware.js';
 
@@ -98,6 +99,34 @@ projectRouter.put('/:id', requireMainAdmin, (req: AuthenticatedRequest, res: Res
   }
 
   try {
+    const existing = ProjectService.getProjectById(id);
+    if (!existing) {
+      res.status(404).json({ error: 'Project not found.' });
+      return;
+    }
+
+    // If env_vars are being modified, require elevated sudo password verification
+    if (env_vars !== undefined) {
+      const currentEnvStr = JSON.stringify(existing.env_vars || {});
+      const newEnvStr = JSON.stringify(env_vars || {});
+      if (currentEnvStr !== newEnvStr) {
+        const sudoPassword = req.body.sudoPassword;
+        if (!sudoPassword || !AuthService.verifySudoElevation(sudoPassword, req.user!.id)) {
+          AuditService.log({
+            userId: req.user!.id,
+            username: req.user!.username,
+            userRole: req.user!.role,
+            ipAddress: ip,
+            action: 'ELEVATED_AUTH_FAILED',
+            target: `Project: "${existing.name}" (#${id})`,
+            details: 'Sudo password verification failed when attempting to update project environment variables.',
+          });
+          res.status(403).json({ error: 'Elevated authorization required: Valid sudo password needed to modify environment variables.' });
+          return;
+        }
+      }
+    }
+
     const updated = ProjectService.updateProject(id, {
       name: cleanName,
       description: typeof description === 'string' ? description.trim() : '',
@@ -198,5 +227,64 @@ projectRouter.put('/:id/steps', requireMainAdmin, (req: AuthenticatedRequest, re
     res.json({ message: 'Pipeline steps saved successfully.', steps: savedSteps });
   } catch (err: any) {
     res.status(500).json({ error: `Failed to save steps: ${err.message}` });
+  }
+});
+
+// 7. Update Project Environment Variables & Secrets with SUDO elevation (MAIN ADMIN ONLY)
+projectRouter.put('/:id/env', requireMainAdmin, (req: AuthenticatedRequest, res: Response): void => {
+  const id = parseInt(req.params.id, 10);
+  const { env_vars, sudoPassword } = req.body;
+  const ip = getClientIp(req);
+
+  if (isNaN(id)) {
+    res.status(400).json({ error: 'Invalid project ID.' });
+    return;
+  }
+
+  const project = ProjectService.getProjectById(id);
+  if (!project) {
+    res.status(404).json({ error: 'Project not found.' });
+    return;
+  }
+
+  if (!sudoPassword || typeof sudoPassword !== 'string') {
+    res.status(400).json({ error: 'Server sudo password is required to modify environment variables.' });
+    return;
+  }
+
+  const isAuthorized = AuthService.verifySudoElevation(sudoPassword, req.user!.id);
+  if (!isAuthorized) {
+    AuditService.log({
+      userId: req.user!.id,
+      username: req.user!.username,
+      userRole: req.user!.role,
+      ipAddress: ip,
+      action: 'ELEVATED_AUTH_FAILED',
+      target: `Project: "${project.name}" (#${id})`,
+      details: 'Failed sudo authorization attempt while trying to update environment variables.',
+    });
+    res.status(403).json({ error: 'Access denied: Invalid server sudo / administrator password.' });
+    return;
+  }
+
+  try {
+    const updated = ProjectService.updateProjectEnvVars(id, env_vars || {});
+
+    AuditService.log({
+      userId: req.user!.id,
+      username: req.user!.username,
+      userRole: req.user!.role,
+      ipAddress: ip,
+      action: 'PROJECT_ENV_UPDATED',
+      target: `Project: "${project.name}" (#${id})`,
+      details: `Environment variables updated with verified sudo authorization (${Object.keys(env_vars || {}).length} variables configured).`,
+    });
+
+    res.json({
+      message: 'Environment variables updated successfully with sudo authorization.',
+      project: updated,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: `Failed to update environment variables: ${err.message}` });
   }
 });

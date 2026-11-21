@@ -188,4 +188,16 @@ export class ProjectService {
       continue_on_error: s.continue_on_error === 1,
     }));
   }
+
+  public static updateProjectEnvVars(id: number, envVars: Record<string, string>) {
+    const now = new Date().toISOString();
+    const envVarsStr = JSON.stringify(envVars || {});
+    db.prepare(`
+      UPDATE projects
+      SET env_vars = ?, updated_at = ?
+      WHERE id = ?
+    `).run(envVarsStr, now, id);
+
+    return this.getProjectById(id);
+  }
 }

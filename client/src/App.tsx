@@ -17,13 +17,15 @@ import {
   History,
   FileCode,
   Sparkles,
-  Server
+  Server,
+  Key
 } from 'lucide-react';
 import { api, setAuthToken, getAuthToken, User, Project, Deployment, PipelineStep } from './api';
 import { Navbar } from './components/Navbar';
 import { TerminalViewer } from './components/TerminalViewer';
 import { StepEditor } from './components/StepEditor';
 import { ProjectModal } from './components/ProjectModal';
+import { EnvVariablesView } from './components/EnvVariablesView';
 import { UserManagementView } from './components/UserManagementView';
 import { AuditLogView } from './components/AuditLogView';
 import { LoginPage } from './pages/LoginPage';
@@ -42,7 +44,7 @@ export const App: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [projectDetailTab, setProjectDetailTab] = useState<'steps' | 'logs' | 'history'>('steps');
+  const [projectDetailTab, setProjectDetailTab] = useState<'steps' | 'logs' | 'history' | 'env'>('steps');
 
   // Modals & Drawers
   const [showProjectModal, setShowProjectModal] = useState(false);
@@ -265,6 +267,7 @@ export const App: React.FC = () => {
     project_path: string;
     env_vars: Record<string, string>;
     steps: PipelineStep[];
+    sudoPassword?: string;
   }) => {
     if (editingProject) {
       const updated = await api.updateProject(editingProject.id, data);
@@ -580,6 +583,17 @@ export const App: React.FC = () => {
                     >
                       <History className="w-4 h-4" /> Deploy History ({deployHistory.length})
                     </button>
+
+                    <button
+                      onClick={() => setProjectDetailTab('env')}
+                      className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                        projectDetailTab === 'env'
+                          ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <Key className="w-4 h-4" /> Environment & Secrets ({Object.keys(selectedProject.env_vars || {}).length})
+                    </button>
                   </div>
 
                   {/* Workspace Content */}
@@ -689,6 +703,22 @@ export const App: React.FC = () => {
                           </tbody>
                         </table>
                       </div>
+                    </div>
+                  )}
+
+                  {projectDetailTab === 'env' && (
+                    <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
+                      <EnvVariablesView
+                        projectId={selectedProject.id}
+                        projectName={selectedProject.name}
+                        initialEnvVars={selectedProject.env_vars || {}}
+                        readOnly={currentUser?.role !== 'MAIN_ADMIN'}
+                        onSaved={async () => {
+                          const updated = await api.getProject(selectedProject.id);
+                          setSelectedProject(updated);
+                          loadProjects();
+                        }}
+                      />
                     </div>
                   )}
                 </div>

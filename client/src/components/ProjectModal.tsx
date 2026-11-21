@@ -10,7 +10,8 @@ import {
   Code2,
   ListOrdered,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  ShieldAlert
 } from 'lucide-react';
 import { Project, PipelineStep } from '../api';
 
@@ -23,6 +24,7 @@ interface ProjectModalProps {
     project_path: string;
     env_vars: Record<string, string>;
     steps: PipelineStep[];
+    sudoPassword?: string;
   }) => Promise<void>;
 }
 
@@ -30,9 +32,11 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, on
   const [name, setName] = useState(project?.name || '');
   const [description, setDescription] = useState(project?.description || '');
   const [projectPath, setProjectPath] = useState(project?.project_path || '');
-  const [envText, setEnvText] = useState(
-    project?.env_vars ? Object.entries(project.env_vars).map(([k, v]) => `${k}=${v}`).join('\n') : ''
-  );
+  const initialEnvText = project?.env_vars
+    ? Object.entries(project.env_vars).map(([k, v]) => `${k}=${v}`).join('\n')
+    : '';
+  const [envText, setEnvText] = useState(initialEnvText);
+  const [sudoPassword, setSudoPassword] = useState('');
   const [showEnvSection, setShowEnvSection] = useState(false);
 
   // Command input mode: 'script' (multiline commands) or 'steps' (structured step list)
@@ -146,6 +150,12 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, on
       }
     }
 
+    const envHasChanged = project ? envText.trim() !== initialEnvText.trim() : false;
+    if (envHasChanged && !sudoPassword) {
+      setError('Server sudo password is required to authorize modifications to environment variables.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -156,6 +166,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, on
         project_path: projectPath.trim(),
         env_vars: envVars,
         steps: finalSteps,
+        sudoPassword: sudoPassword || undefined,
       });
       onClose();
     } catch (err: any) {
@@ -355,6 +366,27 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, on
               </div>
             )}
           </div>
+
+          {/* Sudo Password Requirement when Env Vars are modified on existing project */}
+          {project && envText.trim() !== initialEnvText.trim() && (
+            <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs space-y-2 animate-in fade-in">
+              <div className="flex items-center gap-2 font-semibold">
+                <ShieldAlert className="w-4 h-4 text-amber-400" />
+                <span>Sudo Authorization Required for Environment Changes</span>
+              </div>
+              <p className="text-[11px] text-slate-300">
+                You are updating environment variables / secrets for an existing project. Enter the server sudo or administrator password to authorize:
+              </p>
+              <input
+                type="password"
+                value={sudoPassword}
+                onChange={(e) => setSudoPassword(e.target.value)}
+                placeholder="Enter server sudo / admin password"
+                className="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white font-mono text-xs focus:outline-none focus:border-amber-400"
+                required
+              />
+            </div>
+          )}
 
           {/* Footer Controls */}
           <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">

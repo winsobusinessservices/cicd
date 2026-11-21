@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { JWT_SECRET, JWT_EXPIRES_IN } from '../config.js';
+import { spawnSync } from 'child_process';
+import { JWT_SECRET, JWT_EXPIRES_IN, SERVER_SUDO_PASSWORD } from '../config.js';
 import { db } from '../db/index.js';
 
 export interface UserRow {
@@ -81,5 +82,47 @@ export class AuthService {
 
   public static findById(id: number): UserRow | undefined {
     return db.prepare('SELECT * FROM users WHERE id = ?').get(id) as unknown as UserRow | undefined;
+  }
+
+  /**
+   * Verify elevated sudo authorization before allowing changes to sensitive environment variables/secrets.
+   * Checks against:
+   * 1. Server-level SERVER_SUDO_PASSWORD environment variable if configured.
+   * 2. Host Linux OS sudo verification (via sudo -k -S true) if deployed on Linux.
+   * 3. Fallback to authenticated Main Admin's master account password.
+   */
+  public static verifySudoElevation(password: string, userId: number): boolean {
+    if (!password || typeof password !== 'string') return false;
+
+    // 1. Explicit server sudo password in environment
+    if (SERVER_SUDO_PASSWORD && SERVER_SUDO_PASSWORD.trim() !== '') {
+      if (password === SERVER_SUDO_PASSWORD) {
+        return true;
+      }
+    }
+
+    // 2. Linux OS sudo verification if running on Linux
+    if (process.platform === 'linux') {
+      try {
+        const check = spawnSync('sudo', ['-k', '-S', 'true'], {
+          input: password + '\n',
+          encoding: 'utf-8',
+          timeout: 4000,
+        });
+        if (check.status === 0) {
+          return true;
+        }
+      } catch {
+        // Fallback to application admin credentials
+      }
+    }
+
+    // 3. Fallback: Authenticated Main Admin account password
+    const user = this.findById(userId);
+    if (user && user.role === 'MAIN_ADMIN') {
+      return this.comparePassword(password, user.password_hash);
+    }
+
+    return false;
   }
 }

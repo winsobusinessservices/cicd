@@ -50,3 +50,4 @@ export const JWT_EXPIRES_IN = '7d';
 export const INITIAL_ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 export const INITIAL_ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@varex.local';
 export const INITIAL_ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'AdminPassword123!';
+export const SERVER_SUDO_PASSWORD = process.env.SERVER_SUDO_PASSWORD || '';
