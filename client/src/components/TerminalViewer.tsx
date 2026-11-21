@@ -17,7 +17,7 @@ import {
 const ansiConverter = new Ansi({
   fg: '#cbd5e1',
   bg: '#0b0f19',
-  newline: true,
+  newline: false, // Keep false: .terminal-output uses white-space: pre-wrap so \n is rendered naturally without double breaks
   escapeXML: true,
   stream: true,
 });
@@ -67,7 +67,9 @@ export const TerminalViewer: React.FC<TerminalViewerProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  const htmlLogs = ansiConverter.toHtml(logs || 'Waiting for runner output...');
+  const cleanLogs = (logs || '').replace(/^\s+/, '');
+  const displayContent = cleanLogs || (status === 'RUNNING' ? 'Starting deployment...\n' : 'No logs recorded.');
+  const htmlLogs = ansiConverter.toHtml(displayContent);
 
   return (
     <div className="flex flex-col h-full bg-[#070a12] border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
@@ -161,9 +163,9 @@ export const TerminalViewer: React.FC<TerminalViewerProps> = ({
       </div>
 
       {/* Terminal View Body */}
-      <div className="flex-1 p-4 font-mono text-[13px] leading-relaxed overflow-y-auto select-text bg-[#070a12]">
+      <div className="flex-1 p-3.5 font-mono text-[13px] leading-normal overflow-y-auto select-text bg-[#070a12]">
         <div
-          className="terminal-output text-slate-300"
+          className="terminal-output text-slate-300 max-h-fit"
           dangerouslySetInnerHTML={{ __html: htmlLogs }}
         />
         <div ref={terminalEndRef} />

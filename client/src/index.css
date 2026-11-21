@@ -26,7 +26,9 @@
 
 /* Terminal text styling */
 .terminal-output {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
   white-space: pre-wrap;
   word-break: break-all;
+  margin: 0;
+  padding: 0;
 }

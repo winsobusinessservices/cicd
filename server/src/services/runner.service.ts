@@ -107,23 +107,13 @@ export class RunnerService {
       });
     };
 
-    appendLog('system', `=================================================================\r\n`);
-    appendLog('system', `🚀 VAREX CI/CD PIPELINE RUNNER - DEPLOYMENT #${deploymentId}\r\n`);
-    appendLog('system', `📦 Application: ${project.name} (${project.slug})\r\n`);
-    appendLog('system', `📂 Host Path:   ${project.project_path}\r\n`);
-    appendLog('system', `👤 Triggered:   ${options.username} (${options.userRole})\r\n`);
-    appendLog('system', `🕒 Started At:  ${new Date().toISOString()}\r\n`);
-    appendLog('system', `📋 Total Steps: ${steps.length}\r\n`);
-    appendLog('system', `=================================================================\r\n\r\n`);
-
     // Ensure working directory exists on host
     try {
       if (!fs.existsSync(project.project_path)) {
-        appendLog('system', `⚠️  Project path does not exist. Creating directory: ${project.project_path}\r\n`);
         fs.mkdirSync(project.project_path, { recursive: true });
       }
     } catch (err: any) {
-      appendLog('stderr', `❌ Failed to access or create project path: ${err.message}\r\n`);
+      appendLog('stderr', `Failed to access project path: ${err.message}\n`);
       this.finishDeployment(deploymentId, 'FAILED', Date.now() - startTime, accumulatedLogs, 1, err.message, options, project);
       return;
     }
@@ -155,23 +145,15 @@ export class RunnerService {
       const runRef = this.activeRuns.get(deploymentId);
 
       if (runRef?.aborted) {
-        appendLog('system', `\r\n🛑 DEPLOYMENT ABORTED BY USER.\r\n`);
+        appendLog('system', `Process canceled by user.\n`);
         overallSuccess = false;
         failedErrorMessage = 'Deployment was aborted by user.';
         finalExitCode = 130;
         break;
       }
 
-      appendLog('system', `\r\n-----------------------------------------------------------------\r\n`, stepNum, step.name);
-      appendLog('system', `▶ STEP [${stepNum}/${steps.length}]: ${step.name.toUpperCase()}\r\n`, stepNum, step.name);
-      appendLog('system', `⚙ Command: ${step.command}\r\n`, stepNum, step.name);
-      
-      const stepWorkingDir = step.working_dir
-        ? path.resolve(project.project_path, step.working_dir)
-        : project.project_path;
-
-      appendLog('system', `📁 Directory: ${stepWorkingDir}\r\n`, stepNum, step.name);
-      appendLog('system', `-----------------------------------------------------------------\r\n`, stepNum, step.name);
+      // Clean command prompt like GitHub Actions (no noisy banners)
+      appendLog('system', `$ ${step.command}\n`, stepNum, step.name);
 
       WsManager.broadcastDeployStatus(deploymentId, 'RUNNING_STEP', {
         currentStep: stepNum,
@@ -179,21 +161,18 @@ export class RunnerService {
         stepName: step.name,
       });
 
-      const stepStartTime = Date.now();
-      const stepResult = await this.executeStep(deploymentId, step.command, stepWorkingDir, mergedEnv, appendLog, stepNum, step.name);
-      const stepDuration = ((Date.now() - stepStartTime) / 1000).toFixed(2);
+      const stepWorkingDir = step.working_dir
+        ? path.resolve(project.project_path, step.working_dir)
+        : project.project_path;
 
-      if (stepResult.code === 0) {
-        appendLog('system', `\r\n✅ [STEP ${stepNum} PASSED] Completed in ${stepDuration}s\r\n`, stepNum, step.name);
-      } else {
-        appendLog('stderr', `\r\n❌ [STEP ${stepNum} FAILED] Exited with code ${stepResult.code} (${stepDuration}s)\r\n`, stepNum, step.name);
-        
-        if (step.continue_on_error === 1) {
-          appendLog('system', `⚠️  'Continue on error' is enabled for this step. Continuing pipeline...\r\n`, stepNum, step.name);
-        } else {
+      const stepResult = await this.executeStep(deploymentId, step.command, stepWorkingDir, mergedEnv, appendLog, stepNum, step.name);
+
+      if (stepResult.code !== 0) {
+        if (step.continue_on_error !== 1) {
           overallSuccess = false;
           finalExitCode = stepResult.code;
-          failedErrorMessage = `Step ${stepNum} ("${step.name}") failed with exit code ${stepResult.code}.`;
+          failedErrorMessage = `Process completed with exit code ${stepResult.code}.`;
+          appendLog('stderr', `\nError: Process completed with exit code ${stepResult.code}.\n`);
           break;
         }
       }
@@ -205,14 +184,8 @@ export class RunnerService {
     if (runRef?.aborted) {
       this.finishDeployment(deploymentId, 'ABORTED', durationMs, accumulatedLogs, 130, 'Deployment was aborted.', options, project);
     } else if (overallSuccess) {
-      appendLog('system', `\r\n=================================================================\r\n`);
-      appendLog('system', `🎉 DEPLOYMENT SUCCEEDED in ${(durationMs / 1000).toFixed(2)}s\r\n`);
-      appendLog('system', `=================================================================\r\n`);
       this.finishDeployment(deploymentId, 'SUCCESS', durationMs, accumulatedLogs, 0, null, options, project);
     } else {
-      appendLog('stderr', `\r\n=================================================================\r\n`);
-      appendLog('stderr', `❌ DEPLOYMENT FAILED: ${failedErrorMessage}\r\n`);
-      appendLog('stderr', `=================================================================\r\n`);
       this.finishDeployment(deploymentId, 'FAILED', durationMs, accumulatedLogs, finalExitCode, failedErrorMessage, options, project);
     }
   }
