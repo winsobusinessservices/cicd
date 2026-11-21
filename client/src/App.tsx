@@ -179,27 +179,54 @@ export const App: React.FC = () => {
       api.getProject(selectedProjectId).then((proj) => {
         setSelectedProject(proj);
       });
-      api.getDeployHistory(selectedProjectId).then((history) => {
+      api.getDeployHistory(selectedProjectId).then(async (history) => {
         setDeployHistory(history);
-        if (history.length > 0 && !activeDeployment) {
-          // Default to latest deployment for log view
-          api.getDeployment(history[0].id).then((dep) => {
-            setActiveDeployment(dep);
-          });
+        if (history.length > 0) {
+          const dep = await api.getDeployment(history[0].id);
+          setActiveDeployment(dep);
         }
       });
     } else {
       setSelectedProject(null);
     }
-  }, [selectedProjectId]);
+  }, [selectedProjectId, projectDetailTab]);
+
+  // Polling backup while deployment is running to ensure real-time terminal logs
+  useEffect(() => {
+    if (!activeDeployment) return;
+    const isRunning = activeDeployment.status === 'RUNNING' || activeDeployment.status === 'QUEUED';
+    if (!isRunning) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const latest = await api.getDeployment(activeDeployment.id);
+        if (latest) {
+          setActiveDeployment(latest);
+          if (latest.status !== 'RUNNING' && latest.status !== 'QUEUED') {
+            loadProjects();
+            if (selectedProjectId) {
+              const h = await api.getDeployHistory(selectedProjectId);
+              setDeployHistory(h);
+            }
+          }
+        }
+      } catch {
+        // ignore network error
+      }
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [activeDeployment?.id, activeDeployment?.status]);
 
   // 5. Actions
   const handleTriggerDeploy = async (projectId: number) => {
     try {
+      setSelectedProjectId(projectId);
+      setProjectDetailTab('logs');
+      setShowTerminalDrawer(true);
+
       const res = await api.triggerDeploy(projectId);
       setActiveDeployment(res.deployment);
-      setShowTerminalDrawer(true);
-      setProjectDetailTab('logs');
 
       // Subscribe to WebSocket channel
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -207,10 +234,8 @@ export const App: React.FC = () => {
       }
 
       loadProjects();
-      if (selectedProjectId === projectId) {
-        const history = await api.getDeployHistory(projectId);
-        setDeployHistory(history);
-      }
+      const history = await api.getDeployHistory(projectId);
+      setDeployHistory(history);
     } catch (err: any) {
       alert(`Deployment failed to start: ${err.message}`);
     }
@@ -639,6 +664,7 @@ export const App: React.FC = () => {
                                     onClick={async () => {
                                       const full = await api.getDeployment(d.id);
                                       setActiveDeployment(full);
+                                      setShowTerminalDrawer(true);
                                       setProjectDetailTab('logs');
                                     }}
                                     className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 transition-colors font-sans text-xs"
@@ -674,6 +700,23 @@ export const App: React.FC = () => {
           onClose={() => setShowProjectModal(false)}
           onSave={handleSaveProject}
         />
+      )}
+
+      {/* Live Terminal Modal / Popup */}
+      {showTerminalDrawer && activeDeployment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
+          <div className="w-full max-w-5xl h-[85vh] flex flex-col shadow-2xl">
+            <TerminalViewer
+              deploymentId={activeDeployment.id}
+              projectName={activeDeployment.project_name || selectedProject?.name || 'Project'}
+              status={activeDeployment.status}
+              logs={activeDeployment.logs}
+              durationMs={activeDeployment.duration_ms}
+              onAbort={handleAbortDeploy}
+              onClose={() => setShowTerminalDrawer(false)}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

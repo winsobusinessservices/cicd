@@ -94,6 +94,11 @@ export class RunnerService {
 
     const appendLog = (stream: 'stdout' | 'stderr' | 'system', text: string, stepIndex?: number, stepName?: string) => {
       accumulatedLogs += text;
+      try {
+        db.prepare('UPDATE deployments SET logs = ? WHERE id = ?').run(accumulatedLogs, deploymentId);
+      } catch {
+        // ignore
+      }
       WsManager.broadcastDeployLog(deploymentId, {
         stream,
         text,
@@ -134,6 +139,7 @@ export class RunnerService {
     const mergedEnv: NodeJS.ProcessEnv = {
       ...process.env,
       ...envVars,
+      GIT_TERMINAL_PROMPT: '0',
       VAREX_DEPLOYMENT_ID: deploymentId.toString(),
       VAREX_PROJECT_NAME: project.name,
       VAREX_PROJECT_PATH: project.project_path,
@@ -221,13 +227,19 @@ export class RunnerService {
     stepName: string
   ): Promise<{ code: number }> {
     return new Promise((resolve) => {
-      const isWindows = process.platform === 'win32';
-      const shell = isWindows ? 'cmd.exe' : '/bin/sh';
-      const args = isWindows ? ['/d', '/s', '/c', command] : ['-c', command];
+      // Ensure working directory exists on host
+      if (!fs.existsSync(cwd)) {
+        try {
+          fs.mkdirSync(cwd, { recursive: true });
+        } catch {
+          // ignore
+        }
+      }
 
-      const child = spawn(shell, args, {
+      const child = spawn(command, [], {
         cwd,
         env,
+        shell: true,
         stdio: ['ignore', 'pipe', 'pipe'],
       });
 

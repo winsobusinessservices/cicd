@@ -73,13 +73,9 @@ export const StepEditor: React.FC<StepEditorProps> = ({ steps: initialSteps, onS
     setTimeout(() => setSavedSuccess(false), 2500);
   };
 
-  const addPreset = (name: string, command: string) => {
-    addStep(name, command);
-  };
-
   return (
     <div className="space-y-4">
-      {/* Header and Quick Presets */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
         <div>
           <h3 className="text-base font-semibold text-slate-100 flex items-center gap-2">
@@ -107,48 +103,6 @@ export const StepEditor: React.FC<StepEditorProps> = ({ steps: initialSteps, onS
             {savedSuccess ? 'Saved to DB!' : 'Save Sequence'}
           </button>
         </div>
-      </div>
-
-      {/* Preset Buttons */}
-      <div className="flex flex-wrap items-center gap-2 text-xs">
-        <span className="text-slate-400 text-[11px] font-medium flex items-center gap-1">
-          <Sparkles className="w-3 h-3 text-cyan-400" /> Add Preset:
-        </span>
-        <button
-          type="button"
-          onClick={() => addPreset('Git Pull', 'git pull origin main')}
-          className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors"
-        >
-          + Git Pull
-        </button>
-        <button
-          type="button"
-          onClick={() => addPreset('NPM Build', 'npm install && npm run build')}
-          className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors"
-        >
-          + NPM Build
-        </button>
-        <button
-          type="button"
-          onClick={() => addPreset('Docker Build', 'docker build -t app:latest .')}
-          className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors"
-        >
-          + Docker Build
-        </button>
-        <button
-          type="button"
-          onClick={() => addPreset('Docker Compose Up', 'docker compose up -d --build')}
-          className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors"
-        >
-          + Docker Compose
-        </button>
-        <button
-          type="button"
-          onClick={() => addPreset('PM2 Reload', 'pm2 reload all || pm2 start dist/index.js')}
-          className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors"
-        >
-          + PM2 Reload
-        </button>
       </div>
 
       {/* Steps List */}
@@ -267,7 +221,7 @@ export const StepEditor: React.FC<StepEditorProps> = ({ steps: initialSteps, onS
           <div className="p-8 text-center border-2 border-dashed border-slate-800 rounded-xl">
             <p className="text-slate-400 text-sm mb-3">No steps defined yet for this deployment pipeline.</p>
             <button
-              onClick={() => addStep('Initial Step', 'echo "Starting deploy..."')}
+              onClick={() => addStep('Step 1', '')}
               className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-cyan-400 rounded-lg text-xs font-semibold border border-slate-700 transition-colors"
             >
               Add First Step
