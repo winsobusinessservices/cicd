@@ -4,7 +4,7 @@ import fs from 'fs';
 import { db } from '../db/index.js';
 import { WsManager } from '../websocket.js';
 import { AuditService } from './audit.service.js';
-import { ProjectRow, PipelineStepRow } from './project.service.js';
+import { ProjectService, ProjectRow, PipelineStepRow } from './project.service.js';
 
 export interface DeploymentRow {
   id: number;
@@ -124,6 +124,11 @@ export class RunnerService {
       envVars = JSON.parse(project.env_vars || '{}');
     } catch {
       // ignore
+    }
+
+    // Ensure physical .env file is synchronized into the project folder before pipeline execution
+    if (Object.keys(envVars).length > 0 && project.project_path) {
+      ProjectService.syncEnvFileToDisk(project.project_path, envVars, project.name);
     }
 
     const mergedEnv: NodeJS.ProcessEnv = {
