@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/api/index.ts","./src/components/auditlogview.tsx","./src/components/navbar.tsx","./src/components/projectmodal.tsx","./src/components/stepeditor.tsx","./src/components/terminalviewer.tsx","./src/components/usermanagementview.tsx","./src/pages/loginpage.tsx","./src/pages/registerpage.tsx"],"version":"5.9.3"}

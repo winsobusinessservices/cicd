@@ -1,0 +1,18 @@
+{
+  "name": "varex-cicd-platform",
+  "version": "1.0.0",
+  "description": "Self-Deploying CI/CD Web Platform with Role-Based Approvals and Live Audit Logging",
+  "scripts": {
+    "install:all": "npm install && cd server && npm install && cd ../client && npm install",
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "dev": "node scripts/dev.js",
+    "build:client": "cd client && npm run build",
+    "build:server": "cd server && npm run build",
+    "build": "npm run build:client && npm run build:server",
+    "start": "cd server && npm start"
+  },
+  "keywords": ["cicd", "deployment", "docker", "self-hosted", "audit-logs", "devops"],
+  "author": "Varex",
+  "license": "MIT"
+}

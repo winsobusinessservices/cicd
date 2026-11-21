@@ -1,0 +1,28 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+data/logs/
+
+# SQLite Database
+*.db
+*.db-shm
+*.db-wal
+data/varex.db*
+
+# Dependencies
+node_modules/
+
+# Production Build
+dist/
+build/
+server/public/
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+
+# OS Files
+.DS_Store
+Thumbs.db
