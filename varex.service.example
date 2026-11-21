@@ -1,0 +1,24 @@
+# ============================================================
+# VAREX CI/CD PLATFORM - SYSTEMD SERVICE UNIT FILE
+# Location: /etc/systemd/system/varex.service
+# ============================================================
+
+[Unit]
+Description=Varex Self-Deploying CI/CD Platform
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/var/www/varex
+ExecStart=/usr/bin/node server/dist/index.js
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+Environment=PORT=3000
+
+# Security hardening directives
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
