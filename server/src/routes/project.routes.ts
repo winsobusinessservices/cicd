@@ -1,7 +1,9 @@
 import { Router, Response } from 'express';
+import path from 'path';
 import { ProjectService } from '../services/project.service.js';
 import { AuditService } from '../services/audit.service.js';
 import { requireAuth, AuthenticatedRequest } from '../middleware/auth.middleware.js';
+import { requireMainAdmin } from '../middleware/role.middleware.js';
 
 export const projectRouter = Router();
 
@@ -11,15 +13,19 @@ function getClientIp(req: any): string {
 
 projectRouter.use(requireAuth);
 
-// 1. List all projects
+// 1. List all projects (Main Admin & Sub Admin)
 projectRouter.get('/', (req: AuthenticatedRequest, res: Response) => {
   const projects = ProjectService.getAllProjects();
   res.json(projects);
 });
 
-// 2. Get single project with steps
+// 2. Get single project with steps (Main Admin & Sub Admin)
 projectRouter.get('/:id', (req: AuthenticatedRequest, res: Response): void => {
   const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: 'Invalid project ID.' });
+    return;
+  }
   const project = ProjectService.getProjectById(id);
   if (!project) {
     res.status(404).json({ error: 'Project not found.' });
@@ -28,21 +34,29 @@ projectRouter.get('/:id', (req: AuthenticatedRequest, res: Response): void => {
   res.json(project);
 });
 
-// 3. Create new project
-projectRouter.post('/', (req: AuthenticatedRequest, res: Response): void => {
+// 3. Create new project (MAIN ADMIN ONLY)
+projectRouter.post('/', requireMainAdmin, (req: AuthenticatedRequest, res: Response): void => {
   const { name, description, project_path, env_vars, steps } = req.body;
   const ip = getClientIp(req);
 
-  if (!name || !project_path) {
-    res.status(400).json({ error: 'Project name and project path on host are required.' });
+  const cleanName = typeof name === 'string' ? name.trim() : '';
+  const cleanPath = typeof project_path === 'string' ? project_path.trim() : '';
+
+  if (!cleanName || cleanName.length < 2 || cleanName.length > 80) {
+    res.status(400).json({ error: 'Project name must be between 2 and 80 characters.' });
+    return;
+  }
+
+  if (!cleanPath || !path.isAbsolute(cleanPath)) {
+    res.status(400).json({ error: 'Project path must be a valid, absolute host path (e.g. D:\\app or /var/www/app).' });
     return;
   }
 
   try {
     const project = ProjectService.createProject({
-      name,
-      description,
-      project_path,
+      name: cleanName,
+      description: typeof description === 'string' ? description.trim() : '',
+      project_path: path.normalize(cleanPath),
       env_vars,
       created_by: req.user!.username,
       steps,
@@ -54,8 +68,8 @@ projectRouter.post('/', (req: AuthenticatedRequest, res: Response): void => {
       userRole: req.user!.role,
       ipAddress: ip,
       action: 'PROJECT_CREATED',
-      target: `Project: "${name}" (#${project!.id})`,
-      details: `Project registered with path "${project_path}" and ${project!.steps.length} steps.`,
+      target: `Project: "${cleanName}" (#${project!.id})`,
+      details: `Project registered with path "${cleanPath}" and ${project!.steps.length} steps.`,
     });
 
     res.status(201).json(project);
@@ -64,17 +78,30 @@ projectRouter.post('/', (req: AuthenticatedRequest, res: Response): void => {
   }
 });
 
-// 4. Update project details
-projectRouter.put('/:id', (req: AuthenticatedRequest, res: Response): void => {
+// 4. Update project details (MAIN ADMIN ONLY)
+projectRouter.put('/:id', requireMainAdmin, (req: AuthenticatedRequest, res: Response): void => {
   const id = parseInt(req.params.id, 10);
   const { name, description, project_path, env_vars } = req.body;
   const ip = getClientIp(req);
 
+  const cleanName = typeof name === 'string' ? name.trim() : '';
+  const cleanPath = typeof project_path === 'string' ? project_path.trim() : '';
+
+  if (!cleanName || cleanName.length < 2 || cleanName.length > 80) {
+    res.status(400).json({ error: 'Project name must be between 2 and 80 characters.' });
+    return;
+  }
+
+  if (!cleanPath || !path.isAbsolute(cleanPath)) {
+    res.status(400).json({ error: 'Project path must be a valid, absolute host path.' });
+    return;
+  }
+
   try {
     const updated = ProjectService.updateProject(id, {
-      name,
-      description,
-      project_path,
+      name: cleanName,
+      description: typeof description === 'string' ? description.trim() : '',
+      project_path: path.normalize(cleanPath),
       env_vars,
     });
 
@@ -99,8 +126,8 @@ projectRouter.put('/:id', (req: AuthenticatedRequest, res: Response): void => {
   }
 });
 
-// 5. Delete project
-projectRouter.delete('/:id', (req: AuthenticatedRequest, res: Response): void => {
+// 5. Delete project (MAIN ADMIN ONLY)
+projectRouter.delete('/:id', requireMainAdmin, (req: AuthenticatedRequest, res: Response): void => {
   const id = parseInt(req.params.id, 10);
   const ip = getClientIp(req);
 
@@ -129,8 +156,8 @@ projectRouter.delete('/:id', (req: AuthenticatedRequest, res: Response): void =>
   res.json({ message: 'Project deleted successfully.' });
 });
 
-// 6. Save / Replace pipeline steps for a project
-projectRouter.put('/:id/steps', (req: AuthenticatedRequest, res: Response): void => {
+// 6. Save / Replace pipeline steps for a project (MAIN ADMIN ONLY)
+projectRouter.put('/:id/steps', requireMainAdmin, (req: AuthenticatedRequest, res: Response): void => {
   const id = parseInt(req.params.id, 10);
   const steps = req.body.steps;
   const ip = getClientIp(req);
@@ -144,6 +171,15 @@ projectRouter.put('/:id/steps', (req: AuthenticatedRequest, res: Response): void
   if (!project) {
     res.status(404).json({ error: 'Project not found.' });
     return;
+  }
+
+  // Validate each step
+  for (let i = 0; i < steps.length; i++) {
+    const s = steps[i];
+    if (!s.command || typeof s.command !== 'string' || s.command.trim() === '') {
+      res.status(400).json({ error: `Step #${i + 1} is missing a command.` });
+      return;
+    }
   }
 
   try {

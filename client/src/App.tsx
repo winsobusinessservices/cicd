@@ -360,17 +360,19 @@ export const App: React.FC = () => {
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2.5">
-                    <button
-                      onClick={() => {
-                        setEditingProject(null);
-                        setShowProjectModal(true);
-                      }}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold text-xs shadow-lg shadow-cyan-500/20 transition-all"
-                    >
-                      <Plus className="w-4 h-4" /> New Project
-                    </button>
-                  </div>
+                  {currentUser?.role === 'MAIN_ADMIN' && (
+                    <div className="flex items-center gap-2.5">
+                      <button
+                        onClick={() => {
+                          setEditingProject(null);
+                          setShowProjectModal(true);
+                        }}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold text-xs shadow-lg shadow-cyan-500/20 transition-all"
+                      >
+                        <Plus className="w-4 h-4" /> New Project
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Projects Grid */}
@@ -451,16 +453,18 @@ export const App: React.FC = () => {
                           Steps
                         </button>
 
-                        <button
-                          onClick={() => {
-                            setEditingProject(proj);
-                            setShowProjectModal(true);
-                          }}
-                          className="p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
-                          title="Settings"
-                        >
-                          <Settings className="w-4 h-4" />
-                        </button>
+                        {currentUser?.role === 'MAIN_ADMIN' && (
+                          <button
+                            onClick={() => {
+                              setEditingProject(proj);
+                              setShowProjectModal(true);
+                            }}
+                            className="p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+                            title="Settings"
+                          >
+                            <Settings className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -584,6 +588,7 @@ export const App: React.FC = () => {
                       <StepEditor
                         steps={selectedProject.steps || []}
                         onSave={handleSaveSteps}
+                        readOnly={currentUser?.role !== 'MAIN_ADMIN'}
                       />
                     </div>
                   )}

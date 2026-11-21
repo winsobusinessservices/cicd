@@ -4,11 +4,9 @@ logs
 npm-debug.log*
 data/logs/
 
-# SQLite Database
-*.db
-*.db-shm
-*.db-wal
-data/varex.db*
+# Data and secrets
+data/
+*.jwt_secret
 
 # Dependencies
 node_modules/

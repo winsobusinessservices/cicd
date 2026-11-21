@@ -161,9 +161,20 @@ export class RunnerService {
         stepName: step.name,
       });
 
-      const stepWorkingDir = step.working_dir
-        ? path.resolve(project.project_path, step.working_dir)
-        : project.project_path;
+      const projectRoot = path.resolve(project.project_path);
+      let stepWorkingDir = projectRoot;
+      if (step.working_dir && step.working_dir.trim() !== '') {
+        const resolved = path.resolve(projectRoot, step.working_dir);
+        const relative = path.relative(projectRoot, resolved);
+        if (relative.startsWith('..') || path.isAbsolute(relative)) {
+          overallSuccess = false;
+          finalExitCode = 1;
+          failedErrorMessage = `Security Error: Step working directory "${step.working_dir}" escapes project root.`;
+          appendLog('stderr', `\nSecurity Error: Step working directory "${step.working_dir}" escapes project root.\n`);
+          break;
+        }
+        stepWorkingDir = resolved;
+      }
 
       const stepResult = await this.executeStep(deploymentId, step.command, stepWorkingDir, mergedEnv, appendLog, stepNum, step.name);
 

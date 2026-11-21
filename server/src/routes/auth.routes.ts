@@ -3,6 +3,7 @@ import { AuthService, toUserSummary } from '../services/auth.service.js';
 import { UserService } from '../services/user.service.js';
 import { AuditService } from '../services/audit.service.js';
 import { requireAuth, AuthenticatedRequest } from '../middleware/auth.middleware.js';
+import { loginRateLimiter, registerRateLimiter } from '../middleware/rate-limit.middleware.js';
 
 export const authRouter = Router();
 
@@ -10,17 +11,45 @@ function getClientIp(req: Request): string {
   return (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.socket.remoteAddress || '127.0.0.1';
 }
 
-authRouter.post('/register', (req: Request, res: Response): void => {
-  const { username, name, email, password } = req.body;
+const USERNAME_REGEX = /^[a-zA-Z0-9_-]{3,30}$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+authRouter.post('/register', registerRateLimiter, (req: Request, res: Response): void => {
+  let { username, name, email, password } = req.body;
   const ip = getClientIp(req);
+
+  username = typeof username === 'string' ? username.trim() : '';
+  name = typeof name === 'string' ? name.trim() : '';
+  email = typeof email === 'string' ? email.trim().toLowerCase() : '';
+  password = typeof password === 'string' ? password : '';
 
   if (!username || !name || !email || !password) {
     res.status(400).json({ error: 'All fields (username, name, email, password) are required.' });
     return;
   }
 
-  if (password.length < 6) {
-    res.status(400).json({ error: 'Password must be at least 6 characters.' });
+  if (!USERNAME_REGEX.test(username)) {
+    res.status(400).json({ error: 'Username must be 3-30 characters and contain only letters, numbers, underscores, and hyphens.' });
+    return;
+  }
+
+  if (name.length < 2 || name.length > 60) {
+    res.status(400).json({ error: 'Name must be between 2 and 60 characters.' });
+    return;
+  }
+
+  if (!EMAIL_REGEX.test(email) || email.length > 100) {
+    res.status(400).json({ error: 'Please enter a valid email address.' });
+    return;
+  }
+
+  if (password.length < 8) {
+    res.status(400).json({ error: 'Password must be at least 8 characters long.' });
+    return;
+  }
+
+  if (password.length > 72) {
+    res.status(400).json({ error: 'Password exceeds maximum length (72 characters).' });
     return;
   }
 
@@ -52,9 +81,12 @@ authRouter.post('/register', (req: Request, res: Response): void => {
   }
 });
 
-authRouter.post('/login', (req: Request, res: Response): void => {
-  const { username, password } = req.body;
+authRouter.post('/login', loginRateLimiter, (req: Request, res: Response): void => {
+  let { username, password } = req.body;
   const ip = getClientIp(req);
+
+  username = typeof username === 'string' ? username.trim() : '';
+  password = typeof password === 'string' ? password : '';
 
   if (!username || !password) {
     res.status(400).json({ error: 'Username/email and password are required.' });

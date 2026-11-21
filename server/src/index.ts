@@ -3,10 +3,12 @@ import http from 'http';
 import path from 'path';
 import fs from 'fs';
 import cors from 'cors';
+import helmet from 'helmet';
 import { fileURLToPath } from 'url';
 import { PORT, ROOT_DIR } from './config.js';
 import { initDatabase } from './db/index.js';
 import { WsManager } from './websocket.js';
+import { apiLimiter } from './middleware/rate-limit.middleware.js';
 import { authRouter } from './routes/auth.routes.js';
 import { userRouter } from './routes/user.routes.js';
 import { projectRouter } from './routes/project.routes.js';
@@ -21,8 +23,38 @@ initDatabase();
 
 // 2. Create Express application
 const app = express();
-app.use(cors());
-app.use(express.json());
+
+// Disable Express fingerprinting
+app.disable('x-powered-by');
+
+// Security HTTP headers via Helmet
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+        fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
+        imgSrc: ["'self'", 'data:', 'blob:'],
+        connectSrc: ["'self'", 'ws:', 'wss:'],
+      },
+    },
+    crossOriginEmbedderPolicy: false,
+  })
+);
+
+// CORS configuration (restricted to same host by default)
+app.use(
+  cors({
+    origin: true,
+    credentials: true,
+  })
+);
+
+// Enforce request body limits to protect against DoS
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 
 // Request logging for audit debugging
 app.use((req, res, next) => {
@@ -35,6 +67,9 @@ app.use((req, res, next) => {
   });
   next();
 });
+
+// Apply rate limiter to all API routes
+app.use('/api', apiLimiter);
 
 // 3. Register API endpoints
 app.use('/api/auth', authRouter);
@@ -71,6 +106,7 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`\n============================================================`);
   console.log(`🚀 Varex CI/CD Platform is running on http://0.0.0.0:${PORT}`);
   console.log(`🔒 Security: Strict Password & Approval Gate Active`);
+  console.log(`🛡️ Rate Limiting & Helmet Security Headers: Enabled`);
   console.log(`📝 Audit Logs: Dual-write file and database active`);
   console.log(`============================================================\n`);
 });

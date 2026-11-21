@@ -165,7 +165,7 @@ export const TerminalViewer: React.FC<TerminalViewerProps> = ({
       {/* Terminal View Body */}
       <div className="flex-1 p-3.5 font-mono text-[13px] leading-normal overflow-y-auto select-text bg-[#070a12]">
         <div
-          className="terminal-output text-slate-300 max-h-fit"
+          className="terminal-output text-slate-300"
           dangerouslySetInnerHTML={{ __html: htmlLogs }}
         />
         <div ref={terminalEndRef} />

@@ -11,7 +11,8 @@ import {
   HelpCircle,
   Sparkles,
   ToggleLeft,
-  ToggleRight
+  ToggleRight,
+  Lock
 } from 'lucide-react';
 import { PipelineStep } from '../api';
 
@@ -19,14 +20,16 @@ interface StepEditorProps {
   steps: PipelineStep[];
   onSave: (steps: PipelineStep[]) => Promise<void>;
   loading?: boolean;
+  readOnly?: boolean;
 }
 
-export const StepEditor: React.FC<StepEditorProps> = ({ steps: initialSteps, onSave, loading }) => {
+export const StepEditor: React.FC<StepEditorProps> = ({ steps: initialSteps, onSave, loading, readOnly = false }) => {
   const [steps, setSteps] = useState<PipelineStep[]>(initialSteps);
   const [hasChanges, setHasChanges] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   const updateStep = (index: number, patch: Partial<PipelineStep>) => {
+    if (readOnly) return;
     const updated = [...steps];
     updated[index] = { ...updated[index], ...patch };
     setSteps(updated);
@@ -35,6 +38,7 @@ export const StepEditor: React.FC<StepEditorProps> = ({ steps: initialSteps, onS
   };
 
   const addStep = (name = 'New Step', command = '') => {
+    if (readOnly) return;
     const newStep: PipelineStep = {
       name,
       command,
@@ -48,25 +52,27 @@ export const StepEditor: React.FC<StepEditorProps> = ({ steps: initialSteps, onS
   };
 
   const removeStep = (index: number) => {
-    const updated = steps.filter((_, i) => i !== index);
-    setSteps(updated);
+    if (readOnly) return;
+    setSteps(steps.filter((_, i) => i !== index));
     setHasChanges(true);
     setSavedSuccess(false);
   };
 
   const moveStep = (index: number, direction: 'up' | 'down') => {
+    if (readOnly) return;
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
     if (targetIndex < 0 || targetIndex >= steps.length) return;
+
     const updated = [...steps];
-    const temp = updated[index];
-    updated[index] = updated[targetIndex];
-    updated[targetIndex] = temp;
+    const [moved] = updated.splice(index, 1);
+    updated.splice(targetIndex, 0, moved);
     setSteps(updated);
     setHasChanges(true);
     setSavedSuccess(false);
   };
 
   const handleSave = async () => {
+    if (readOnly) return;
     await onSave(steps);
     setHasChanges(false);
     setSavedSuccess(true);
@@ -88,20 +94,26 @@ export const StepEditor: React.FC<StepEditorProps> = ({ steps: initialSteps, onS
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={handleSave}
-            disabled={loading || !hasChanges}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold shadow-md transition-all ${
-              savedSuccess
-                ? 'bg-emerald-600 text-white'
-                : hasChanges
-                ? 'bg-cyan-500 hover:bg-cyan-400 text-slate-950'
-                : 'bg-slate-800 text-slate-500 cursor-not-allowed'
-            }`}
-          >
-            {savedSuccess ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
-            {savedSuccess ? 'Saved to DB!' : 'Save Sequence'}
-          </button>
+          {readOnly ? (
+            <span className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 border border-slate-700">
+              <Lock className="w-3.5 h-3.5 text-amber-400" /> Read-Only (Main Admin required to modify)
+            </span>
+          ) : (
+            <button
+              onClick={handleSave}
+              disabled={loading || !hasChanges}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold shadow-md transition-all ${
+                savedSuccess
+                  ? 'bg-emerald-600 text-white'
+                  : hasChanges
+                  ? 'bg-cyan-500 hover:bg-cyan-400 text-slate-950'
+                  : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+              }`}
+            >
+              {savedSuccess ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
+              {savedSuccess ? 'Saved to DB!' : 'Save Sequence'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -124,56 +136,61 @@ export const StepEditor: React.FC<StepEditorProps> = ({ steps: initialSteps, onS
                 <input
                   type="text"
                   value={step.name}
+                  readOnly={readOnly}
                   onChange={(e) => updateStep(index, { name: e.target.value })}
                   placeholder="Step Name (e.g. Docker Build)"
-                  className="bg-transparent font-medium text-sm text-slate-200 focus:outline-none focus:ring-1 focus:ring-cyan-500 rounded px-1.5 py-0.5 w-full max-w-xs"
+                  className={`bg-transparent font-medium text-sm text-slate-200 focus:outline-none rounded px-1.5 py-0.5 w-full max-w-xs ${
+                    readOnly ? 'cursor-default' : 'focus:ring-1 focus:ring-cyan-500'
+                  }`}
                 />
               </div>
 
               {/* Step Controls */}
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => updateStep(index, { is_enabled: !step.is_enabled })}
-                  title={step.is_enabled ? 'Disable Step' : 'Enable Step'}
-                  className="p-1 rounded text-slate-400 hover:text-slate-200 transition-colors"
-                >
-                  {step.is_enabled ? (
-                    <ToggleRight className="w-5 h-5 text-cyan-400" />
-                  ) : (
-                    <ToggleLeft className="w-5 h-5 text-slate-600" />
-                  )}
-                </button>
+              {!readOnly && (
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => updateStep(index, { is_enabled: !step.is_enabled })}
+                    title={step.is_enabled ? 'Disable Step' : 'Enable Step'}
+                    className="p-1 rounded text-slate-400 hover:text-slate-200 transition-colors"
+                  >
+                    {step.is_enabled ? (
+                      <ToggleRight className="w-5 h-5 text-cyan-400" />
+                    ) : (
+                      <ToggleLeft className="w-5 h-5 text-slate-600" />
+                    )}
+                  </button>
 
-                <button
-                  type="button"
-                  disabled={index === 0}
-                  onClick={() => moveStep(index, 'up')}
-                  title="Move Up"
-                  className="p-1 rounded text-slate-400 hover:text-slate-200 disabled:opacity-30 disabled:hover:text-slate-400"
-                >
-                  <ArrowUp className="w-4 h-4" />
-                </button>
+                  <button
+                    type="button"
+                    disabled={index === 0}
+                    onClick={() => moveStep(index, 'up')}
+                    title="Move Up"
+                    className="p-1 rounded text-slate-400 hover:text-slate-200 disabled:opacity-30 disabled:hover:text-slate-400"
+                  >
+                    <ArrowUp className="w-4 h-4" />
+                  </button>
 
-                <button
-                  type="button"
-                  disabled={index === steps.length - 1}
-                  onClick={() => moveStep(index, 'down')}
-                  title="Move Down"
-                  className="p-1 rounded text-slate-400 hover:text-slate-200 disabled:opacity-30 disabled:hover:text-slate-400"
-                >
-                  <ArrowDown className="w-4 h-4" />
-                </button>
+                  <button
+                    type="button"
+                    disabled={index === steps.length - 1}
+                    onClick={() => moveStep(index, 'down')}
+                    title="Move Down"
+                    className="p-1 rounded text-slate-400 hover:text-slate-200 disabled:opacity-30 disabled:hover:text-slate-400"
+                  >
+                    <ArrowDown className="w-4 h-4" />
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={() => removeStep(index)}
-                  title="Remove Step"
-                  className="p-1 rounded text-slate-400 hover:text-red-400 transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    onClick={() => removeStep(index)}
+                    title="Remove Step"
+                    className="p-1 rounded text-slate-400 hover:text-red-400 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Command Input Area */}
@@ -183,9 +200,12 @@ export const StepEditor: React.FC<StepEditorProps> = ({ steps: initialSteps, onS
                 <input
                   type="text"
                   value={step.command}
+                  readOnly={readOnly}
                   onChange={(e) => updateStep(index, { command: e.target.value })}
                   placeholder="e.g. docker compose up -d --build"
-                  className="w-full bg-[#070a12] border border-slate-800 rounded-lg px-3 py-1.5 font-mono text-xs text-cyan-300 focus:outline-none focus:border-cyan-500 transition-colors"
+                  className={`w-full bg-[#070a12] border border-slate-800 rounded-lg px-3 py-1.5 font-mono text-xs text-cyan-300 transition-colors ${
+                    readOnly ? 'cursor-default opacity-85' : 'focus:outline-none focus:border-cyan-500'
+                  }`}
                 />
               </div>
 
@@ -197,16 +217,20 @@ export const StepEditor: React.FC<StepEditorProps> = ({ steps: initialSteps, onS
                   <input
                     type="text"
                     value={step.working_dir || ''}
+                    readOnly={readOnly}
                     onChange={(e) => updateStep(index, { working_dir: e.target.value })}
                     placeholder="relative (e.g. client or backend)"
-                    className="bg-[#070a12] border border-slate-800 rounded px-2 py-0.5 text-slate-300 text-xs w-48 focus:outline-none focus:border-cyan-500"
+                    className={`bg-[#070a12] border border-slate-800 rounded px-2 py-0.5 text-slate-300 text-xs w-48 ${
+                      readOnly ? 'cursor-default' : 'focus:outline-none focus:border-cyan-500'
+                    }`}
                   />
                 </div>
 
-                <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                <label className={`flex items-center gap-1.5 select-none ${readOnly ? 'cursor-default' : 'cursor-pointer'}`}>
                   <input
                     type="checkbox"
                     checked={step.continue_on_error}
+                    disabled={readOnly}
                     onChange={(e) => updateStep(index, { continue_on_error: e.target.checked })}
                     className="rounded bg-slate-800 border-slate-700 text-cyan-500 focus:ring-0"
                   />
@@ -220,24 +244,28 @@ export const StepEditor: React.FC<StepEditorProps> = ({ steps: initialSteps, onS
         {steps.length === 0 && (
           <div className="p-8 text-center border-2 border-dashed border-slate-800 rounded-xl">
             <p className="text-slate-400 text-sm mb-3">No steps defined yet for this deployment pipeline.</p>
-            <button
-              onClick={() => addStep('Step 1', '')}
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-cyan-400 rounded-lg text-xs font-semibold border border-slate-700 transition-colors"
-            >
-              Add First Step
-            </button>
+            {!readOnly && (
+              <button
+                onClick={() => addStep('Step 1', '')}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-cyan-400 rounded-lg text-xs font-semibold border border-slate-700 transition-colors"
+              >
+                Add First Step
+              </button>
+            )}
           </div>
         )}
       </div>
 
       {/* Add Step Button */}
-      <button
-        type="button"
-        onClick={() => addStep(`Step ${steps.length + 1}`, '')}
-        className="w-full py-2.5 rounded-xl border border-dashed border-slate-800 hover:border-cyan-500/50 hover:bg-cyan-500/5 text-slate-400 hover:text-cyan-400 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
-      >
-        <Plus className="w-4 h-4" /> Add Next Pipeline Step
-      </button>
+      {!readOnly && (
+        <button
+          type="button"
+          onClick={() => addStep(`Step ${steps.length + 1}`, '')}
+          className="w-full py-2.5 rounded-xl border border-dashed border-slate-800 hover:border-cyan-500/50 hover:bg-cyan-500/5 text-slate-400 hover:text-cyan-400 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
+        >
+          <Plus className="w-4 h-4" /> Add Next Pipeline Step
+        </button>
+      )}
     </div>
   );
 };

@@ -11,13 +11,11 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
   let token = '';
 
   if (authHeader && authHeader.startsWith('Bearer ')) {
-    token = authHeader.slice(7);
-  } else if (req.query.token) {
-    token = req.query.token as string;
+    token = authHeader.slice(7).trim();
   }
 
   if (!token) {
-    res.status(401).json({ error: 'Authentication required. Please log in.' });
+    res.status(401).json({ error: 'Authentication required. Missing or malformed Bearer token.' });
     return;
   }
 
@@ -28,9 +26,9 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
   }
 
   // Verify user still exists in database and remains approved
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(payload.id) as UserRow | undefined;
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(payload.id) as unknown as UserRow | undefined;
   if (!user) {
-    res.status(401).json({ error: 'User account not found.' });
+    res.status(401).json({ error: 'User account not found or has been removed.' });
     return;
   }
 
