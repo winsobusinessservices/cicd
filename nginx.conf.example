@@ -13,7 +13,7 @@ server {
     client_max_body_size 50M;
 
     location / {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:3040;
         proxy_http_version 1.1;
 
         # WebSocket support (Crucial for live terminal output streaming)
