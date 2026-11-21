@@ -1,6 +1,5 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { IncomingMessage, Server } from 'http';
-import url from 'url';
 import { AuthService } from './services/auth.service.js';
 
 interface ExtendedWebSocket extends WebSocket {
@@ -17,11 +16,18 @@ export class WsManager {
     this.wss = new WebSocketServer({ noServer: true });
 
     server.on('upgrade', (request: IncomingMessage, socket, head) => {
-      const parsedUrl = url.parse(request.url || '', true);
+      let parsedUrl: URL;
+      try {
+        parsedUrl = new URL(request.url || '', `http://${request.headers.host || 'localhost'}`);
+      } catch {
+        socket.destroy();
+        return;
+      }
+
       const pathname = parsedUrl.pathname;
 
       if (pathname === '/ws') {
-        const token = (parsedUrl.query.token as string) || '';
+        const token = parsedUrl.searchParams.get('token') || '';
         const user = AuthService.verifyToken(token);
 
         if (!user) {
