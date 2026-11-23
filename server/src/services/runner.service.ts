@@ -118,7 +118,7 @@ export class RunnerService {
       return;
     }
 
-    // Parse custom environment variables
+    // Parse custom environment variables (first load from DB, then merge latest from disk if present)
     let envVars: Record<string, string> = {};
     try {
       envVars = JSON.parse(project.env_vars || '{}');
@@ -126,14 +126,50 @@ export class RunnerService {
       // ignore
     }
 
-    // Ensure physical .env file is synchronized into the project folder before pipeline execution
-    if (Object.keys(envVars).length > 0 && project.project_path) {
-      ProjectService.syncEnvFileToDisk(project.project_path, envVars, project.name);
+    const envFilePath = ProjectService.getEnvFilePath(project.project_path);
+    if (fs.existsSync(envFilePath)) {
+      try {
+        const diskVars = ProjectService.parseEnvFile(envFilePath);
+        if (Object.keys(diskVars).length > 0) {
+          envVars = { ...envVars, ...diskVars };
+        }
+      } catch {
+        // ignore
+      }
+    } else if (Object.keys(envVars).length > 0) {
+      try {
+        ProjectService.syncEnvFileToDisk(project.project_path, envVars, project.name);
+      } catch {
+        // ignore
+      }
+    }
+
+    // Security: Filter out dangerous runtime-hooking environment variables from injected project env
+    const BLOCKED_PROCESS_HOOKS = new Set([
+      'NODE_OPTIONS',
+      'LD_PRELOAD',
+      'LD_LIBRARY_PATH',
+      'DYLD_INSERT_LIBRARIES',
+      'DYLD_LIBRARY_PATH',
+      'PYTHONPATH',
+      'PERL5OPT',
+      'RUBYOPT',
+      'BASH_ENV',
+      'ENV',
+    ]);
+
+    const sanitizedEnvVars: Record<string, string> = {};
+    for (const [key, value] of Object.entries(envVars)) {
+      if (BLOCKED_PROCESS_HOOKS.has(key.toUpperCase().trim())) {
+        appendLog('stderr', `[SECURITY WARNING] Blocked dangerous process-hooking variable: "${key}".\n`);
+        continue;
+      }
+      sanitizedEnvVars[key] = value;
     }
 
     const mergedEnv: NodeJS.ProcessEnv = {
       ...process.env,
-      ...envVars,
+      ...sanitizedEnvVars,
       GIT_TERMINAL_PROMPT: '0',
       VAREX_DEPLOYMENT_ID: deploymentId.toString(),
       VAREX_PROJECT_NAME: project.name,

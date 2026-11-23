@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import fs from 'fs';
 import { AuditService } from '../services/audit.service.js';
 import { requireAuth, AuthenticatedRequest } from '../middleware/auth.middleware.js';
+import { requireMainAdmin } from '../middleware/role.middleware.js';
 
 export const auditRouter = Router();
 
@@ -24,8 +25,8 @@ auditRouter.get('/', (req: AuthenticatedRequest, res: Response) => {
   res.json(result);
 });
 
-// 2. Download the physical raw audit.log file
-auditRouter.get('/download', (req: AuthenticatedRequest, res: Response): void => {
+// 2. Download the physical raw audit.log file (Main Admin only)
+auditRouter.get('/download', requireMainAdmin, (req: AuthenticatedRequest, res: Response): void => {
   const filePath = AuditService.getRawLogFilePath();
 
   if (!fs.existsSync(filePath)) {

@@ -1,11 +1,12 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { IncomingMessage, Server } from 'http';
 import { AuthService } from './services/auth.service.js';
+import { db } from './db/index.js';
 
 interface ExtendedWebSocket extends WebSocket {
   isAlive: boolean;
   user?: any;
-  subscriptions: Set<string>; // e.g. "deploy:123", "project:456", "global"
+  subscriptions: Set<string>; // e.g. "deploy:123", "project:456"
 }
 
 export class WsManager {
@@ -28,9 +29,17 @@ export class WsManager {
 
       if (pathname === '/ws') {
         const token = parsedUrl.searchParams.get('token') || '';
-        const user = AuthService.verifyToken(token);
+        const payload = AuthService.verifyToken(token);
 
-        if (!user) {
+        if (!payload || !payload.id) {
+          socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+          socket.destroy();
+          return;
+        }
+
+        // Verify user account exists and remains approved in database
+        const user = db.prepare('SELECT id, username, role, is_approved FROM users WHERE id = ?').get(payload.id) as any;
+        if (!user || user.is_approved !== 1) {
           socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
           socket.destroy();
           return;
@@ -40,7 +49,7 @@ export class WsManager {
           const extWs = ws as ExtendedWebSocket;
           extWs.isAlive = true;
           extWs.user = user;
-          extWs.subscriptions = new Set(['global']);
+          extWs.subscriptions = new Set(); // Channel isolation: only send explicitly subscribed channels
           this.wss.emit('connection', extWs, request);
         });
       } else {
@@ -89,7 +98,8 @@ export class WsManager {
   public static broadcastToChannel(channel: string, payload: any) {
     const raw = JSON.stringify({ channel, ...payload });
     this.clients.forEach((ws) => {
-      if (ws.readyState === WebSocket.OPEN && (ws.subscriptions.has(channel) || ws.subscriptions.has('global'))) {
+      // Only broadcast to clients explicitly subscribed to this channel
+      if (ws.readyState === WebSocket.OPEN && ws.subscriptions.has(channel)) {
         ws.send(raw);
       }
     });

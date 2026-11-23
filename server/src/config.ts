@@ -4,12 +4,18 @@ import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 
-dotenv.config();
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export const ROOT_DIR = path.resolve(__dirname, '../../');
+
+// Ensure root .env is loaded if present, regardless of working directory
+if (fs.existsSync(path.join(ROOT_DIR, '.env'))) {
+  dotenv.config({ path: path.join(ROOT_DIR, '.env') });
+} else {
+  dotenv.config();
+}
+
 export const DATA_DIR = process.env.DATA_DIR || path.join(ROOT_DIR, 'data');
 export const LOGS_DIR = path.join(DATA_DIR, 'logs');
 export const DB_PATH = path.join(DATA_DIR, 'varex.db');

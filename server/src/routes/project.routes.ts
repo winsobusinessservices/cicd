@@ -12,6 +12,18 @@ function getClientIp(req: any): string {
   return (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.socket.remoteAddress || '127.0.0.1';
 }
 
+function areEnvVarsEqual(a?: Record<string, string>, b?: Record<string, string>): boolean {
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+  const keysA = Object.keys(a).filter((k) => k.trim());
+  const keysB = Object.keys(b).filter((k) => k.trim());
+  if (keysA.length !== keysB.length) return false;
+  for (const key of keysA) {
+    if ((a[key] ?? '') !== (b[key] ?? '')) return false;
+  }
+  return true;
+}
+
 projectRouter.use(requireAuth);
 
 // 1. List all projects (Main Admin & Sub Admin)
@@ -48,16 +60,18 @@ projectRouter.post('/', requireMainAdmin, (req: AuthenticatedRequest, res: Respo
     return;
   }
 
-  if (!cleanPath || !path.isAbsolute(cleanPath)) {
-    res.status(400).json({ error: 'Project path must be a valid, absolute host path (e.g. D:\\app or /var/www/app).' });
+  const unquotedPath = cleanPath.replace(/^["']|["']$/g, '').trim();
+  if (!unquotedPath) {
+    res.status(400).json({ error: 'Project path cannot be empty.' });
     return;
   }
+  const resolvedPath = ProjectService.resolveProjectPath(unquotedPath);
 
   try {
     const project = ProjectService.createProject({
       name: cleanName,
       description: typeof description === 'string' ? description.trim() : '',
-      project_path: path.normalize(cleanPath),
+      project_path: resolvedPath,
       env_vars,
       created_by: req.user!.username,
       steps,
@@ -93,10 +107,12 @@ projectRouter.put('/:id', requireMainAdmin, (req: AuthenticatedRequest, res: Res
     return;
   }
 
-  if (!cleanPath || !path.isAbsolute(cleanPath)) {
-    res.status(400).json({ error: 'Project path must be a valid, absolute host path.' });
+  const unquotedPath = cleanPath.replace(/^["']|["']$/g, '').trim();
+  if (!unquotedPath) {
+    res.status(400).json({ error: 'Project path cannot be empty.' });
     return;
   }
+  const resolvedPath = ProjectService.resolveProjectPath(unquotedPath);
 
   try {
     const existing = ProjectService.getProjectById(id);
@@ -107,9 +123,8 @@ projectRouter.put('/:id', requireMainAdmin, (req: AuthenticatedRequest, res: Res
 
     // If env_vars are being modified, require elevated sudo password verification
     if (env_vars !== undefined) {
-      const currentEnvStr = JSON.stringify(existing.env_vars || {});
-      const newEnvStr = JSON.stringify(env_vars || {});
-      if (currentEnvStr !== newEnvStr) {
+      const hasChanged = !areEnvVarsEqual(existing.env_vars, env_vars);
+      if (hasChanged) {
         const sudoPassword = req.body.sudoPassword;
         if (!sudoPassword || !AuthService.verifySudoElevation(sudoPassword, req.user!.id)) {
           AuditService.log({
@@ -130,7 +145,7 @@ projectRouter.put('/:id', requireMainAdmin, (req: AuthenticatedRequest, res: Res
     const updated = ProjectService.updateProject(id, {
       name: cleanName,
       description: typeof description === 'string' ? description.trim() : '',
-      project_path: path.normalize(cleanPath),
+      project_path: resolvedPath,
       env_vars,
     });
 
@@ -281,10 +296,48 @@ projectRouter.put('/:id/env', requireMainAdmin, (req: AuthenticatedRequest, res:
     });
 
     res.json({
-      message: 'Environment variables updated successfully with sudo authorization.',
+      message: `Environment variables updated and synchronized to ${updated?.env_file_path || 'disk'}.`,
       project: updated,
     });
   } catch (err: any) {
     res.status(500).json({ error: `Failed to update environment variables: ${err.message}` });
+  }
+});
+
+// 8. Explicitly reload / sync .env from host server disk (MAIN ADMIN ONLY)
+projectRouter.post('/:id/env/sync', requireMainAdmin, (req: AuthenticatedRequest, res: Response): void => {
+  const id = parseInt(req.params.id, 10);
+  const ip = getClientIp(req);
+
+  if (isNaN(id)) {
+    res.status(400).json({ error: 'Invalid project ID.' });
+    return;
+  }
+
+  const project = ProjectService.getProjectById(id);
+  if (!project) {
+    res.status(404).json({ error: 'Project not found.' });
+    return;
+  }
+
+  try {
+    const synced = ProjectService.syncProjectEnvFromDisk(id);
+
+    AuditService.log({
+      userId: req.user!.id,
+      username: req.user!.username,
+      userRole: req.user!.role,
+      ipAddress: ip,
+      action: 'PROJECT_ENV_SYNCED',
+      target: `Project: "${project.name}" (#${id})`,
+      details: `Reloaded and synchronized environment variables from server file "${synced?.env_file_path}".`,
+    });
+
+    res.json({
+      message: `Successfully synchronized environment variables from server file: ${synced?.env_file_path}`,
+      project: synced,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: `Failed to sync environment variables from disk: ${err.message}` });
   }
 });

@@ -24,6 +24,9 @@ initDatabase();
 // 2. Create Express application
 const app = express();
 
+// Trust reverse proxy (Nginx, Caddy, Cloudflare) so express-rate-limit and IP logging get real client IP
+app.set('trust proxy', 1);
+
 // Disable Express fingerprinting
 app.disable('x-powered-by');
 
@@ -44,10 +47,19 @@ app.use(
   })
 );
 
-// CORS configuration (restricted to same host by default)
+// CORS configuration (allow same-origin or configured origins, disallowing arbitrary cross-origin reflection)
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim())
+  : null;
+
 app.use(
   cors({
-    origin: true,
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (!allowedOrigins) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      return callback(new Error('Cross-Origin Request Blocked by Varex Security Policy'));
+    },
     credentials: true,
   })
 );

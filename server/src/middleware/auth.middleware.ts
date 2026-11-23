@@ -12,6 +12,9 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
 
   if (authHeader && authHeader.startsWith('Bearer ')) {
     token = authHeader.slice(7).trim();
+  } else if (req.query && typeof req.query.token === 'string') {
+    // Support authenticated query token for direct file downloads
+    token = req.query.token.trim();
   }
 
   if (!token) {

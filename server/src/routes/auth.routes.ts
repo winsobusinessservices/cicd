@@ -95,6 +95,8 @@ authRouter.post('/login', loginRateLimiter, (req: Request, res: Response): void 
 
   const userRow = AuthService.findByUsernameOrEmail(username);
   if (!userRow) {
+    // Mitigate user enumeration timing attack by executing a constant-time comparison
+    AuthService.comparePassword(password, '$2a$10$dummyhashformitigatingtimingattacksxxxxxxxxxxxxxxxxxxxx');
     AuditService.log({
       username,
       userRole: 'ANONYMOUS',
@@ -176,4 +178,59 @@ authRouter.post('/logout', requireAuth, (req: AuthenticatedRequest, res: Respons
     });
   }
   res.json({ message: 'Signed out successfully.' });
+});
+
+authRouter.post('/change-password', requireAuth, (req: AuthenticatedRequest, res: Response): void => {
+  const { currentPassword, newPassword } = req.body;
+  const ip = getClientIp(req);
+
+  if (!currentPassword || !newPassword) {
+    res.status(400).json({ error: 'Both current password and new password are required.' });
+    return;
+  }
+
+  if (typeof newPassword !== 'string' || newPassword.length < 8) {
+    res.status(400).json({ error: 'New password must be at least 8 characters long.' });
+    return;
+  }
+
+  if (newPassword.length > 72) {
+    res.status(400).json({ error: 'New password exceeds maximum length (72 characters).' });
+    return;
+  }
+
+  const userRow = AuthService.findById(req.user!.id);
+  if (!userRow) {
+    res.status(404).json({ error: 'User account not found.' });
+    return;
+  }
+
+  const isValid = AuthService.comparePassword(currentPassword, userRow.password_hash);
+  if (!isValid) {
+    AuditService.log({
+      userId: req.user!.id,
+      username: req.user!.username,
+      userRole: req.user!.role,
+      ipAddress: ip,
+      action: 'PASSWORD_CHANGE_FAILED',
+      target: `User: ${req.user!.username}`,
+      details: 'Incorrect current password provided.',
+    });
+    res.status(401).json({ error: 'Current password does not match.' });
+    return;
+  }
+
+  AuthService.updatePassword(req.user!.id, newPassword);
+
+  AuditService.log({
+    userId: req.user!.id,
+    username: req.user!.username,
+    userRole: req.user!.role,
+    ipAddress: ip,
+    action: 'USER_PASSWORD_CHANGED',
+    target: `User: ${req.user!.username}`,
+    details: 'User successfully changed their password.',
+  });
+
+  res.json({ message: 'Password changed successfully.' });
 });

@@ -53,16 +53,22 @@ export class AuthService {
         role: user.role,
       },
       JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
+      { algorithm: 'HS256', expiresIn: JWT_EXPIRES_IN }
     );
   }
 
   public static verifyToken(token: string): any {
     try {
-      return jwt.verify(token, JWT_SECRET);
+      return jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
     } catch {
       return null;
     }
+  }
+
+  public static updatePassword(userId: number, newPassword: string): boolean {
+    const hash = this.hashPassword(newPassword);
+    const result = db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, userId);
+    return result.changes > 0;
   }
 
   public static hashPassword(password: string): string {

@@ -29,6 +29,9 @@ export interface Project {
   description: string;
   project_path: string;
   env_vars: Record<string, string>;
+  env_file_path?: string;
+  env_file_exists?: boolean;
+  env_file_mtime?: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -122,6 +125,12 @@ export const api = {
 
   getMe: () => request<{ user: User }>('/auth/me'),
 
+  changePassword: (data: { currentPassword: string; newPassword: string }) =>
+    request<{ message: string }>('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
   logout: () =>
     request<{ message: string }>('/auth/logout', { method: 'POST' }).finally(() => {
       setAuthToken(null);
@@ -158,11 +167,16 @@ export const api = {
 
   updateProjectEnv: (id: number, data: {
     env_vars: Record<string, string>;
-    sudoPassword: string;
+    sudoPassword?: string;
   }) =>
     request<{ message: string; project: Project }>(`/projects/${id}/env`, {
       method: 'PUT',
       body: JSON.stringify(data),
+    }),
+
+  syncProjectEnv: (id: number) =>
+    request<{ message: string; project: Project }>(`/projects/${id}/env/sync`, {
+      method: 'POST',
     }),
 
   deleteProject: (id: number) =>

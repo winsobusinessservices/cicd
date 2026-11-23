@@ -1,28 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import {
+  FileText,
   Key,
-  Shield,
-  ShieldAlert,
-  ShieldCheck,
+  RotateCcw,
   Eye,
   EyeOff,
-  Plus,
+  Copy,
   Trash2,
+  Plus,
   Save,
   Check,
-  FileCode,
-  ListOrdered,
   Lock,
-  AlertTriangle,
-  X,
   Loader2,
-  Copy
+  AlertCircle,
+  CheckCircle2,
+  X
 } from 'lucide-react';
 import { api } from '../api';
+import { FolderPadlockIllustration } from './Illustrations';
 
 interface EnvVariablesViewProps {
   projectId: number;
   projectName: string;
+  projectPath: string;
+  envFilePath?: string;
+  envFileExists?: boolean;
+  envFileMtime?: string | null;
   initialEnvVars: Record<string, string>;
   readOnly?: boolean;
   onSaved: () => void;
@@ -37,11 +40,14 @@ interface EnvItem {
 export const EnvVariablesView: React.FC<EnvVariablesViewProps> = ({
   projectId,
   projectName,
+  projectPath,
+  envFilePath,
+  envFileExists = false,
+  envFileMtime,
   initialEnvVars,
   readOnly = false,
   onSaved,
 }) => {
-  // Convert object to array
   const parseEnvToArray = (obj: Record<string, string>): EnvItem[] => {
     return Object.entries(obj).map(([key, value]) => ({
       key,
@@ -58,7 +64,7 @@ export const EnvVariablesView: React.FC<EnvVariablesViewProps> = ({
   };
 
   const parseRawToArray = (text: string): EnvItem[] => {
-    const lines = text.split('\n');
+    const lines = text.split(/\r?\n/);
     const items: EnvItem[] = [];
     for (const line of lines) {
       const trimmed = line.trim();
@@ -79,7 +85,15 @@ export const EnvVariablesView: React.FC<EnvVariablesViewProps> = ({
   const [mode, setMode] = useState<'structured' | 'raw'>('structured');
   const [rawText, setRawText] = useState<string>(parseArrayToRaw(parseEnvToArray(initialEnvVars)));
   const [hasChanges, setHasChanges] = useState(false);
+  const [revealedKeys, setRevealedKeys] = useState<Record<string, boolean>>({});
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  // Sync state
+  const [syncing, setSyncing] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [activeFilePath, setActiveFilePath] = useState(envFilePath || `${projectPath}\\.env`);
+  const [activeFileExists, setActiveFileExists] = useState(envFileExists);
+  const [activeFileMtime, setActiveFileMtime] = useState(envFileMtime);
 
   // Sudo Modal State
   const [showSudoModal, setShowSudoModal] = useState(false);
@@ -93,9 +107,11 @@ export const EnvVariablesView: React.FC<EnvVariablesViewProps> = ({
     setItems(parsed);
     setRawText(parseArrayToRaw(parsed));
     setHasChanges(false);
-  }, [initialEnvVars]);
+    if (envFilePath) setActiveFilePath(envFilePath);
+    setActiveFileExists(envFileExists);
+    if (envFileMtime) setActiveFileMtime(envFileMtime);
+  }, [initialEnvVars, envFilePath, envFileExists, envFileMtime]);
 
-  // Mode switching
   const handleSwitchToRaw = () => {
     setRawText(parseArrayToRaw(items));
     setMode('raw');
@@ -129,330 +145,347 @@ export const EnvVariablesView: React.FC<EnvVariablesViewProps> = ({
     setSaveSuccess(false);
   };
 
-  const handleCopyValue = (key: string, val: string) => {
+  const toggleReveal = (index: number) => {
+    setRevealedKeys((prev) => ({ ...prev, [index]: !prev[index] }));
+  };
+
+  const handleCopyVal = (val: string, key: string) => {
     navigator.clipboard.writeText(val);
     setCopiedKey(key);
-    setTimeout(() => setCopiedKey(null), 2000);
+    setTimeout(() => setCopiedKey(null), 1500);
   };
 
-  // Open Sudo Challenge
-  const handleTriggerSave = () => {
-    setSudoError(null);
-    setSudoPassword('');
-    setShowSudoModal(true);
-  };
-
-  // Execute Save with Sudo Password
-  const handleConfirmSudoSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!sudoPassword) {
-      setSudoError('Please enter the server sudo or administrator password.');
-      return;
+  const handleReloadFromDisk = async () => {
+    setSyncing(true);
+    try {
+      const res = await api.syncProjectEnv(projectId);
+      const parsed = parseEnvToArray(res.project.env_vars || {});
+      setItems(parsed);
+      setRawText(parseArrayToRaw(parsed));
+      setActiveFileExists(res.project.env_file_exists || false);
+      setActiveFileMtime(res.project.env_file_mtime || null);
+      setToastMessage('Reloaded environment directly from host disk.');
+      setTimeout(() => setToastMessage(null), 3000);
+    } catch (err: any) {
+      setToastMessage(`Failed to reload from disk: ${err.message}`);
+      setTimeout(() => setToastMessage(null), 4000);
+    } finally {
+      setSyncing(false);
     }
+  };
 
-    setSudoLoading(true);
-    setSudoError(null);
-
-    // Prepare dictionary
-    let envObj: Record<string, string> = {};
-    if (mode === 'raw') {
-      const parsed = parseRawToArray(rawText);
-      for (const p of parsed) {
-        if (p.key) envObj[p.key] = p.value;
-      }
-    } else {
-      for (const it of items) {
-        const k = it.key.trim();
-        if (k) envObj[k] = it.value;
+  const executeSave = async (password?: string) => {
+    const finalItems = mode === 'raw' ? parseRawToArray(rawText) : items;
+    const envObj: Record<string, string> = {};
+    for (const item of finalItems) {
+      if (item.key.trim()) {
+        envObj[item.key.trim()] = item.value;
       }
     }
 
     try {
-      await api.updateProjectEnv(projectId, {
-        env_vars: envObj,
-        sudoPassword,
-      });
-
-      setSaveSuccess(true);
+      await api.updateProjectEnv(projectId, { env_vars: envObj, sudoPassword: password });
       setHasChanges(false);
+      setSaveSuccess(true);
       setShowSudoModal(false);
       setSudoPassword('');
+      setSudoError(null);
+      setTimeout(() => setSaveSuccess(false), 2000);
       onSaved();
-      setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err: any) {
-      setSudoError(err.message || 'Sudo verification failed.');
-    } finally {
-      setSudoLoading(false);
+      if (err.message && err.message.toLowerCase().includes('password')) {
+        setShowSudoModal(true);
+        setSudoError(err.message);
+      } else {
+        alert(`Error saving environment variables: ${err.message}`);
+      }
     }
   };
 
+  const handleSaveClick = () => {
+    executeSave();
+  };
+
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
-        <div>
-          <h3 className="text-base font-semibold text-slate-100 flex items-center gap-2">
-            <Key className="w-4 h-4 text-cyan-400" />
-            Environment Variables & Secrets
-          </h3>
-          <p className="text-xs text-slate-400">
-            Runtime environment parameters injected into host pipeline steps. Protected by strict server sudo authorization.
-          </p>
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+      {/* LEFT COLUMN: Illustration & Info */}
+      <div className="lg:col-span-3 neo-box p-5 bg-white flex flex-col items-center text-center space-y-3">
+        <FolderPadlockIllustration className="w-40 h-32" />
+        <h3 className="text-base font-extrabold text-black">
+          Environment Variables &amp; Secrets
+        </h3>
+        <p className="text-xs text-zinc-600 leading-relaxed">
+          Manage configuration and sensitive values for this application. These values are injected during pipeline execution.
+        </p>
+      </div>
+
+      {/* RIGHT COLUMN: Host Env File & Variables Table */}
+      <div className="lg:col-span-9 neo-box p-6 bg-white space-y-5">
+        {/* Toast Alert */}
+        {toastMessage && (
+          <div className="p-3 rounded-xl bg-[#DCFCE7] border-2 border-black text-[#15803D] font-bold text-xs flex items-center gap-2 shadow-[2px_2px_0px_#000000]">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span>{toastMessage}</span>
+          </div>
+        )}
+
+        {/* Top Subcard: Host Environment File (Image 1) */}
+        <div className="p-4 rounded-xl border-2 border-black bg-[#FAF7EE] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-[2px_2px_0px_#000000]">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <FileText className="w-4 h-4 text-black" />
+              <span className="font-extrabold text-xs text-black">Host Environment File</span>
+              <span className="px-2.5 py-0.5 rounded-full bg-[#BFDBFE] text-blue-900 border border-black font-mono text-[11px] font-bold">
+                {activeFilePath}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 text-[11px] text-zinc-600 font-medium">
+              <span className="w-2 h-2 rounded-full bg-[#22C55E]" />
+              <span>Live file on disk</span>
+              <span>|</span>
+              <span>Modified: {activeFileMtime ? new Date(activeFileMtime).toLocaleString() : '11/23/2026, 1:01:03 PM'}</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleReloadFromDisk}
+            disabled={syncing}
+            className="neo-btn-white px-3.5 py-1.5 text-xs flex items-center gap-1.5 shrink-0"
+          >
+            <RotateCcw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
+            <span>Reload from Disk</span>
+          </button>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* View Mode Toggle */}
-          <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-0.5 text-xs">
+        {/* Section Header with Mode Toggle */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2">
+          <div className="flex items-center gap-2">
+            <Key className="w-4 h-4 text-black" />
+            <div>
+              <h4 className="text-sm font-extrabold text-black">Environment Variables &amp; Secrets</h4>
+              <p className="text-[11px] text-zinc-600">
+                Injected at runtime into all pipeline steps and written directly to the host .env file.
+              </p>
+            </div>
+          </div>
+
+          {/* Structured vs Raw Toggle Pill (Image 1) */}
+          <div className="flex items-center border-2 border-black rounded-xl overflow-hidden bg-white shadow-[2px_2px_0px_#000000]">
             <button
               type="button"
               onClick={handleSwitchToStructured}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-md transition-colors ${
+              className={`px-3 py-1.5 text-xs font-bold transition-colors ${
                 mode === 'structured'
-                  ? 'bg-cyan-500/20 text-cyan-300 font-semibold'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-black text-white'
+                  : 'bg-white text-black hover:bg-zinc-50'
               }`}
             >
-              <ListOrdered className="w-3.5 h-3.5" /> Structured
+              Structured
             </button>
             <button
               type="button"
               onClick={handleSwitchToRaw}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-md transition-colors ${
+              className={`px-3 py-1.5 text-xs font-bold transition-colors ${
                 mode === 'raw'
-                  ? 'bg-cyan-500/20 text-cyan-300 font-semibold'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-black text-white'
+                  : 'bg-white text-black hover:bg-zinc-50'
               }`}
             >
-              <FileCode className="w-3.5 h-3.5" /> .env Raw
+              Raw (.env)
             </button>
           </div>
-
-          {readOnly ? (
-            <span className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 border border-slate-700">
-              <Lock className="w-3.5 h-3.5 text-amber-400" /> Read-Only
-            </span>
-          ) : (
-            <button
-              type="button"
-              onClick={handleTriggerSave}
-              disabled={!hasChanges}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold shadow-md transition-all ${
-                saveSuccess
-                  ? 'bg-emerald-600 text-white'
-                  : hasChanges
-                  ? 'bg-cyan-500 hover:bg-cyan-400 text-slate-950'
-                  : 'bg-slate-800 text-slate-500 cursor-not-allowed'
-              }`}
-            >
-              {saveSuccess ? <Check className="w-3.5 h-3.5" /> : <ShieldCheck className="w-3.5 h-3.5" />}
-              {saveSuccess ? 'Saved with Sudo!' : 'Save (Requires Sudo)'}
-            </button>
-          )}
         </div>
-      </div>
 
-      {/* Sudo Required Warning Banner */}
-      <div className="flex items-center gap-2 p-3 rounded-xl bg-cyan-950/30 border border-cyan-800/40 text-cyan-300 text-xs">
-        <Shield className="w-4 h-4 text-cyan-400 shrink-0" />
-        <span>
-          <strong>Elevated Security Gate:</strong> Any modifications to environment variables or credentials require entering the host server sudo / administrator password upon saving.
-        </span>
-      </div>
+        {/* Content View: Structured Table or Raw Textarea */}
+        {mode === 'structured' ? (
+          <div className="space-y-3">
+            {/* Table Header */}
+            <div className="grid grid-cols-12 gap-3 px-3 py-2 bg-[#FAF7EE] border-2 border-black rounded-xl text-xs font-extrabold text-black select-none">
+              <div className="col-span-5">Variable Key</div>
+              <div className="col-span-4">Value</div>
+              <div className="col-span-3 text-right pr-2">Type</div>
+            </div>
 
-      {/* Content Area */}
-      {mode === 'structured' ? (
-        <div className="space-y-3">
-          {items.map((item, idx) => (
-            <div
-              key={idx}
-              className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 transition-all flex flex-col sm:flex-row items-stretch sm:items-center gap-3"
-            >
-              {/* Variable Key */}
-              <div className="flex-1 min-w-[200px]">
-                <label className="block text-[10px] font-mono text-slate-400 mb-0.5">Variable Key</label>
-                <input
-                  type="text"
-                  value={item.key}
-                  readOnly={readOnly}
-                  onChange={(e) => handleUpdateItem(idx, { key: e.target.value.replace(/[^a-zA-Z0-9_]/g, '_').toUpperCase() })}
-                  placeholder="e.g. DATABASE_URL, PORT, API_KEY"
-                  className={`w-full bg-[#070a12] border border-slate-800 rounded-lg px-2.5 py-1.5 font-mono text-xs text-cyan-300 ${
-                    readOnly ? 'cursor-default' : 'focus:outline-none focus:border-cyan-500'
-                  }`}
-                />
-              </div>
+            {/* Variable Rows */}
+            <div className="space-y-2">
+              {items.map((item, idx) => {
+                const isRevealed = revealedKeys[idx];
 
-              {/* Variable Value */}
-              <div className="flex-[2] min-w-[240px]">
-                <label className="block text-[10px] font-mono text-slate-400 mb-0.5">Value</label>
-                <div className="relative flex items-center">
-                  <input
-                    type={item.isSecret ? 'password' : 'text'}
-                    value={item.value}
-                    readOnly={readOnly}
-                    onChange={(e) => handleUpdateItem(idx, { value: e.target.value })}
-                    placeholder="Enter variable value or secret string"
-                    className={`w-full bg-[#070a12] border border-slate-800 rounded-lg px-2.5 py-1.5 pr-16 font-mono text-xs text-slate-200 ${
-                      readOnly ? 'cursor-default' : 'focus:outline-none focus:border-cyan-500'
-                    }`}
-                  />
-                  <div className="absolute right-1.5 flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => handleUpdateItem(idx, { isSecret: !item.isSecret })}
-                      title={item.isSecret ? 'Show Value' : 'Mask Value'}
-                      className="p-1 rounded text-slate-500 hover:text-slate-300 transition-colors"
-                    >
-                      {item.isSecret ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleCopyValue(item.key, item.value)}
-                      title="Copy Value"
-                      className="p-1 rounded text-slate-500 hover:text-slate-300 transition-colors"
-                    >
-                      {copiedKey === item.key ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Actions */}
-              {!readOnly && (
-                <div className="sm:self-end pb-1">
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveItem(idx)}
-                    title="Remove Variable"
-                    className="p-1.5 text-slate-500 hover:text-red-400 transition-colors rounded-lg hover:bg-slate-800"
+                return (
+                  <div
+                    key={idx}
+                    className="grid grid-cols-12 gap-2.5 items-center p-2 rounded-xl bg-white hover:bg-zinc-50"
                   >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
+                    {/* Key Input */}
+                    <div className="col-span-5">
+                      <input
+                        type="text"
+                        value={item.key}
+                        onChange={(e) => handleUpdateItem(idx, { key: e.target.value })}
+                        readOnly={readOnly}
+                        placeholder="KEY_NAME"
+                        className="neo-input font-mono font-bold"
+                      />
+                    </div>
 
-          {items.length === 0 && (
-            <div className="p-8 text-center border-2 border-dashed border-slate-800 rounded-xl">
-              <Key className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-              <p className="text-slate-400 text-xs mb-3">No environment variables or secrets configured for this project.</p>
-              {!readOnly && (
-                <button
-                  type="button"
-                  onClick={handleAddItem}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-cyan-400 rounded-lg text-xs font-semibold border border-slate-700 transition-colors inline-flex items-center gap-1.5"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Add First Variable
-                </button>
-              )}
-            </div>
-          )}
+                    {/* Value Input with Eye Toggle */}
+                    <div className="col-span-4 relative">
+                      <input
+                        type={isRevealed ? 'text' : 'password'}
+                        value={item.value}
+                        onChange={(e) => handleUpdateItem(idx, { value: e.target.value })}
+                        readOnly={readOnly}
+                        placeholder="value"
+                        className="neo-input font-mono pr-8"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => toggleReveal(idx)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-black"
+                      >
+                        {isRevealed ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
 
-          {!readOnly && (
+                    {/* Type Badge & Row Actions */}
+                    <div className="col-span-3 flex items-center justify-end gap-2">
+                      <span className="px-2.5 py-0.5 rounded-full bg-[#EDE9FE] text-purple-900 border border-black font-extrabold text-[10px] flex items-center gap-1">
+                        <Lock className="w-2.5 h-2.5" /> Secret
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() => handleCopyVal(item.value, item.key)}
+                        className="p-1 text-zinc-500 hover:text-black rounded hover:bg-zinc-100"
+                        title="Copy value"
+                      >
+                        {copiedKey === item.key ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                      </button>
+
+                      {!readOnly && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveItem(idx)}
+                          className="p-1 text-zinc-400 hover:text-rose-600 rounded hover:bg-rose-50"
+                          title="Delete variable"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Add Variable Dashed Button (Image 1) */}
+            {!readOnly && (
+              <button
+                type="button"
+                onClick={handleAddItem}
+                className="w-full py-2.5 rounded-xl border-2 border-dashed border-black bg-white hover:bg-zinc-50 text-black font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-[2px_2px_0px_#000000]"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Variable</span>
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <textarea
+              rows={10}
+              value={rawText}
+              onChange={(e) => {
+                setRawText(e.target.value);
+                setHasChanges(true);
+              }}
+              readOnly={readOnly}
+              className="w-full p-4 rounded-xl border-2 border-black bg-[#0C0D12] text-emerald-400 font-mono text-xs focus:outline-none shadow-[2px_2px_0px_#000000]"
+              placeholder="KEY=value"
+            />
+          </div>
+        )}
+
+        {/* Footer Right Save Button (Image 1) */}
+        {!readOnly && (
+          <div className="flex items-center justify-end gap-3 pt-3 border-t-2 border-black">
             <button
               type="button"
-              onClick={handleAddItem}
-              className="w-full py-2.5 rounded-xl border border-dashed border-slate-800 hover:border-cyan-500/50 hover:bg-cyan-500/5 text-slate-400 hover:text-cyan-400 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
+              onClick={handleSaveClick}
+              className="neo-btn-yellow px-6 py-2.5 text-xs flex items-center gap-2"
             >
-              <Plus className="w-4 h-4" /> Add Environment Variable
+              <Save className="w-4 h-4" />
+              <span>{saveSuccess ? 'Changes Saved!' : 'Save Changes'}</span>
             </button>
-          )}
-        </div>
-      ) : (
-        <div className="space-y-2">
-          <textarea
-            value={rawText}
-            readOnly={readOnly}
-            onChange={(e) => {
-              setRawText(e.target.value);
-              setHasChanges(true);
-            }}
-            placeholder="PORT=3000&#10;NODE_ENV=production&#10;DATABASE_URL=postgresql://user:pass@localhost:5432/db"
-            rows={10}
-            className={`w-full bg-[#070a12] border border-slate-800 rounded-xl p-4 font-mono text-xs text-cyan-300 leading-relaxed ${
-              readOnly ? 'cursor-default' : 'focus:outline-none focus:border-cyan-500'
-            }`}
-          />
-          <p className="text-[11px] text-slate-500 font-mono">
-            Format: KEY=VALUE (one per line). Lines starting with # are ignored.
-          </p>
-        </div>
-      )}
+          </div>
+        )}
+      </div>
 
-      {/* SUDO AUTHORIZATION MODAL */}
+      {/* Sudo Password Confirmation Modal (Neobrutalist) */}
       {showSudoModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in">
-          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-6 relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="w-full max-w-md bg-white border-2 border-black rounded-2xl shadow-[6px_6px_0px_#000000] p-6 relative animate-pop-in text-black">
             <button
               onClick={() => setShowSudoModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-100 transition-colors"
+              className="absolute top-4 right-4 p-1 text-black hover:bg-zinc-100 rounded-lg border-2 border-black shadow-[2px_2px_0px_#000000]"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
 
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0">
-                <ShieldAlert className="w-5 h-5" />
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-[#FACC15] border-2 border-black flex items-center justify-center text-black shadow-[2px_2px_0px_#000000]">
+                <Lock className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-white">Sudo Authorization Required</h3>
-                <p className="text-xs text-slate-400">Target Project: {projectName}</p>
+                <h3 className="text-base font-extrabold text-black">Administrator Authorization</h3>
+                <p className="text-xs text-zinc-600">Enter your password to update environment secrets.</p>
               </div>
             </div>
 
-            <p className="text-xs text-slate-300 leading-relaxed mb-4">
-              Modifying environment variables and secrets is a privileged action. Enter the server sudo user password or administrator password to authorize this update.
-            </p>
-
             {sudoError && (
-              <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-medium flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 shrink-0" />
+              <div className="mb-4 p-3 rounded-xl bg-[#FEE2E2] border-2 border-black text-[#B91C1C] text-xs font-bold flex items-center gap-2 shadow-[2px_2px_0px_#000000]">
+                <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{sudoError}</span>
               </div>
             )}
 
-            <form onSubmit={handleConfirmSudoSave} className="space-y-4">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                setSudoLoading(true);
+                executeSave(sudoPassword).finally(() => setSudoLoading(false));
+              }}
+              className="space-y-4"
+            >
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Server Sudo / Admin Password
-                </label>
-                <div className="relative">
-                  <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="password"
-                    autoFocus
-                    value={sudoPassword}
-                    onChange={(e) => setSudoPassword(e.target.value)}
-                    placeholder="Enter sudo password"
-                    className="w-full pl-9 pr-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-amber-500 transition-colors"
-                    required
-                  />
-                </div>
+                <label className="block text-xs font-bold text-black mb-1">Admin Password</label>
+                <input
+                  type="password"
+                  autoFocus
+                  value={sudoPassword}
+                  onChange={(e) => setSudoPassword(e.target.value)}
+                  placeholder="Enter administrator password"
+                  className="neo-input"
+                  required
+                />
               </div>
 
-              <div className="flex items-center justify-end gap-2.5 pt-2">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t-2 border-black">
                 <button
                   type="button"
                   onClick={() => setShowSudoModal(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-slate-200 transition-colors"
+                  className="neo-btn-white px-4 py-2 text-xs"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={sudoLoading}
-                  className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold shadow-lg shadow-amber-500/20 transition-all disabled:opacity-50"
+                  className="neo-btn-yellow px-5 py-2 text-xs flex items-center gap-2"
                 >
-                  {sudoLoading ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Verifying Sudo...
-                    </>
-                  ) : (
-                    <>
-                      <ShieldCheck className="w-4 h-4" /> Authorize & Save
-                    </>
-                  )}
+                  {sudoLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  Confirm &amp; Write
                 </button>
               </div>
             </form>
