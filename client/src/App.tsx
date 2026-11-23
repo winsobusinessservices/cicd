@@ -40,6 +40,8 @@ import {
   DoodleSparks,
   HeroServerRocket,
   HeroServerPadlock,
+  HeroTerminalServer,
+  HeroGearCubeServer,
   AppIconStore,
   AppIconNews,
   AppIconBag,
@@ -73,6 +75,8 @@ export const App: React.FC = () => {
   // Live Deployment & Terminal
   const [activeDeployment, setActiveDeployment] = useState<Deployment | null>(null);
   const [deployHistory, setDeployHistory] = useState<Deployment[]>([]);
+  const [historyStatusFilter, setHistoryStatusFilter] = useState<'ALL' | 'SUCCESS' | 'FAILED'>('ALL');
+  const [historyTimeFilter, setHistoryTimeFilter] = useState<'ALL' | 'TODAY' | 'WEEK'>('ALL');
 
   // Users management
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
@@ -338,6 +342,18 @@ export const App: React.FC = () => {
   const liveCount = useMemo(() => projects.filter((p) => p.last_deploy_status === 'SUCCESS').length, [projects]);
   const failedCount = useMemo(() => projects.filter((p) => p.last_deploy_status === 'FAILED').length, [projects]);
   const pausedCount = useMemo(() => projects.filter((p) => !p.last_deploy_status || p.last_deploy_status === 'ABORTED').length, [projects]);
+
+  const filteredDeployHistory = useMemo(() => {
+    return deployHistory.filter((d) => {
+      if (historyStatusFilter === 'SUCCESS' && d.status !== 'SUCCESS') return false;
+      if (historyStatusFilter === 'FAILED' && d.status !== 'FAILED') return false;
+      if (historyTimeFilter === 'TODAY') {
+        const today = new Date().toDateString();
+        if (new Date(d.started_at).toDateString() !== today) return false;
+      }
+      return true;
+    });
+  }, [deployHistory, historyStatusFilter, historyTimeFilter]);
 
   // Color & Icon mapping for projects (Image 9)
   const getProjectVisuals = (name: string, index: number) => {
@@ -749,9 +765,16 @@ export const App: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-6 shrink-0">
-                      {projectDetailTab === 'history' ? (
+                      {projectDetailTab === 'steps' && (
+                        <HeroGearCubeServer className="w-44 h-24 hidden lg:block" />
+                      )}
+                      {projectDetailTab === 'logs' && (
+                        <HeroTerminalServer className="w-44 h-24 hidden lg:block" />
+                      )}
+                      {projectDetailTab === 'history' && (
                         <HeroServerRocket className="w-44 h-24 hidden lg:block" />
-                      ) : (
+                      )}
+                      {projectDetailTab === 'env' && (
                         <HeroServerPadlock className="w-44 h-24 hidden lg:block" />
                       )}
 
@@ -890,7 +913,7 @@ export const App: React.FC = () => {
                     <div className="space-y-4">
                       <div className="neo-box p-5 bg-white space-y-4">
                         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b-2 border-black">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2.5">
                             <Clock className="w-5 h-5 text-black" />
                             <div>
                               <h3 className="text-base font-extrabold text-black">Deployment History</h3>
@@ -899,9 +922,32 @@ export const App: React.FC = () => {
                               </p>
                             </div>
                           </div>
+
+                          {/* Filter Dropdowns (Image 2) */}
+                          <div className="flex items-center gap-2 self-stretch sm:self-auto">
+                            <select
+                              value={historyStatusFilter}
+                              onChange={(e) => setHistoryStatusFilter(e.target.value as any)}
+                              className="neo-input font-bold text-xs cursor-pointer py-1.5 px-3 bg-white"
+                            >
+                              <option value="ALL">All Status</option>
+                              <option value="SUCCESS">Success Only</option>
+                              <option value="FAILED">Failed Only</option>
+                            </select>
+
+                            <select
+                              value={historyTimeFilter}
+                              onChange={(e) => setHistoryTimeFilter(e.target.value as any)}
+                              className="neo-input font-bold text-xs cursor-pointer py-1.5 px-3 bg-white"
+                            >
+                              <option value="ALL">All Time</option>
+                              <option value="TODAY">Today</option>
+                              <option value="WEEK">This Week</option>
+                            </select>
+                          </div>
                         </div>
 
-                        {/* History Table */}
+                        {/* History Table (Image 2) */}
                         <div className="overflow-x-auto">
                           <table className="w-full text-left text-xs">
                             <thead>
@@ -916,7 +962,7 @@ export const App: React.FC = () => {
                               </tr>
                             </thead>
                             <tbody className="divide-y-2 divide-black/10">
-                              {deployHistory.map((d) => (
+                              {filteredDeployHistory.map((d) => (
                                 <tr key={d.id} className="hover:bg-zinc-50 transition-colors">
                                   <td className="py-3 px-3">
                                     <span className="px-2.5 py-1 rounded-lg bg-[#EDE9FE] text-purple-900 border border-black font-mono font-bold text-xs">
@@ -926,35 +972,40 @@ export const App: React.FC = () => {
 
                                   <td className="py-3 px-3">
                                     {d.status === 'SUCCESS' && (
-                                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#DCFCE7] text-[#15803D] border-2 border-black font-extrabold text-[11px]">
-                                        <CheckCircle2 className="w-3 h-3 stroke-[3]" /> SUCCESS
+                                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#DCFCE7] text-[#15803D] border-2 border-black font-extrabold text-[11px] shadow-[1.5px_1.5px_0px_#000000]">
+                                        <CheckCircle2 className="w-3.5 h-3.5 stroke-[3]" /> SUCCESS
                                       </span>
                                     )}
                                     {d.status === 'FAILED' && (
-                                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#FEE2E2] text-[#B91C1C] border-2 border-black font-extrabold text-[11px]">
-                                        <XCircle className="w-3 h-3 stroke-[3]" /> FAILED
+                                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FEE2E2] text-[#B91C1C] border-2 border-black font-extrabold text-[11px] shadow-[1.5px_1.5px_0px_#000000]">
+                                        <XCircle className="w-3.5 h-3.5 stroke-[3]" /> FAILED
                                       </span>
                                     )}
                                     {d.status === 'RUNNING' && (
-                                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#E0F2FE] text-[#0369A1] border-2 border-black font-extrabold text-[11px]">
+                                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E0F2FE] text-[#0369A1] border-2 border-black font-extrabold text-[11px] shadow-[1.5px_1.5px_0px_#000000]">
                                         <span className="w-2 h-2 rounded-full bg-sky-500 animate-ping" /> RUNNING
+                                      </span>
+                                    )}
+                                    {d.status !== 'SUCCESS' && d.status !== 'FAILED' && d.status !== 'RUNNING' && (
+                                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-100 text-zinc-700 border-2 border-black font-extrabold text-[11px]">
+                                        {d.status}
                                       </span>
                                     )}
                                   </td>
 
                                   <td className="py-3 px-3">
                                     <div className="flex items-center gap-2">
-                                      <div className="w-6 h-6 rounded-md bg-[#818CF8] text-white font-extrabold text-[11px] flex items-center justify-center border border-black">
+                                      <div className="w-6 h-6 rounded-md bg-[#818CF8] text-white font-extrabold text-[11px] flex items-center justify-center border border-black shadow-[1px_1px_0px_#000000]">
                                         {(d.triggered_by_username || 'A').slice(0, 1).toUpperCase()}
                                       </div>
                                       <div>
                                         <div className="font-extrabold text-black">{d.triggered_by_username || 'admin'}</div>
-                                        <div className="text-[10px] text-zinc-500 font-bold uppercase">MAIN ADMIN</div>
+                                        <div className="text-[10px] text-zinc-600 font-bold uppercase">MAIN ADMIN</div>
                                       </div>
                                     </div>
                                   </td>
 
-                                  <td className="py-3 px-3 font-mono text-zinc-700 font-medium">
+                                  <td className="py-3 px-3 font-mono text-zinc-700 font-medium whitespace-nowrap">
                                     {new Date(d.started_at).toLocaleString()}
                                   </td>
 
@@ -962,7 +1013,7 @@ export const App: React.FC = () => {
                                     {d.duration_ms ? `${(d.duration_ms / 1000).toFixed(1)}s` : '-'}
                                   </td>
 
-                                  {/* Steps Mini Graph */}
+                                  {/* Steps Mini Graph (Image 2) */}
                                   <td className="py-3 px-3">
                                     <div className="inline-flex items-center gap-1">
                                       {Array.from({ length: Math.min(selectedProject.steps?.length || 4, 5) }).map((_, sIdx) => {
@@ -970,14 +1021,14 @@ export const App: React.FC = () => {
                                         return (
                                           <React.Fragment key={sIdx}>
                                             <div
-                                              className={`w-5 h-5 rounded border border-black flex items-center justify-center font-bold text-[10px] ${
+                                              className={`w-5 h-5 rounded-md border-2 border-black flex items-center justify-center font-bold text-[10px] ${
                                                 isCross ? 'bg-[#FEE2E2] text-rose-600' : 'bg-[#DCFCE7] text-[#15803D]'
                                               }`}
                                             >
                                               {isCross ? '✕' : '✓'}
                                             </div>
                                             {sIdx < Math.min(selectedProject.steps?.length || 4, 5) - 1 && (
-                                              <div className="w-2 h-[2px] bg-black" />
+                                              <div className="w-2.5 h-[2px] bg-black" />
                                             )}
                                           </React.Fragment>
                                         );
@@ -985,26 +1036,37 @@ export const App: React.FC = () => {
                                     </div>
                                   </td>
 
+                                  {/* Actions: View Terminal + ... (Image 2) */}
                                   <td className="py-3 px-3 text-right">
-                                    <button
-                                      onClick={async () => {
-                                        const full = await api.getDeployment(d.id);
-                                        setActiveDeployment(full);
-                                        setProjectDetailTab('logs');
-                                      }}
-                                      className="neo-btn-white px-3 py-1 text-xs inline-flex items-center gap-1 cursor-pointer"
-                                    >
-                                      <Terminal className="w-3.5 h-3.5" />
-                                      <span>View Terminal</span>
-                                    </button>
+                                    <div className="flex items-center justify-end gap-1.5">
+                                      <button
+                                        onClick={async () => {
+                                          const full = await api.getDeployment(d.id);
+                                          setActiveDeployment(full);
+                                          setProjectDetailTab('logs');
+                                        }}
+                                        className="neo-btn-white px-3 py-1.5 text-xs inline-flex items-center gap-1.5 cursor-pointer shadow-[1.5px_1.5px_0px_#000000]"
+                                      >
+                                        <Terminal className="w-3.5 h-3.5" />
+                                        <span>View Terminal</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        className="p-1.5 rounded-lg border-2 border-black bg-white hover:bg-zinc-100 shadow-[1.5px_1.5px_0px_#000000] cursor-pointer"
+                                        title="Deployment options"
+                                      >
+                                        <MoreHorizontal className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
                                   </td>
                                 </tr>
                               ))}
 
-                              {deployHistory.length === 0 && (
+                              {filteredDeployHistory.length === 0 && (
                                 <tr>
-                                  <td colSpan={7} className="py-6 text-center text-zinc-500 font-medium">
-                                    No deployment runs recorded yet for this project.
+                                  <td colSpan={7} className="py-8 text-center text-zinc-500 font-medium">
+                                    No deployment runs recorded matching the selected filter.
                                   </td>
                                 </tr>
                               )}
