@@ -11,18 +11,18 @@ export const DoodleSparks: React.FC<{ className?: string }> = ({ className = 'w-
 
 // Corner Background Blobs for that playful Neobrutalist canvas
 export const BackgroundDecorations: React.FC = () => (
-  <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+  <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden max-w-full">
     {/* Bottom Left Yellow Curve */}
     <div
-      className="absolute -bottom-16 -left-16 w-80 h-80 rounded-full bg-[#FDE047] opacity-90 border-4 border-black"
+      className="absolute -bottom-16 -left-16 w-48 h-48 sm:w-80 sm:h-80 rounded-full bg-[#FDE047] opacity-90 border-2 sm:border-4 border-black"
       style={{ clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%)' }}
     />
     {/* Bottom Center-Right Sky Blue Blob */}
-    <div className="absolute -bottom-24 right-1/4 w-96 h-56 rounded-t-full bg-[#38BDF8] border-4 border-black" />
+    <div className="hidden sm:block absolute -bottom-24 right-1/4 w-96 h-56 rounded-t-full bg-[#38BDF8] border-4 border-black" />
     {/* Bottom Right Coral/Pink Accent */}
-    <div className="absolute -bottom-12 -right-12 w-64 h-64 rounded-tl-full bg-[#FB7185] border-4 border-black" />
+    <div className="absolute -bottom-12 -right-12 w-40 h-40 sm:w-64 sm:h-64 rounded-tl-full bg-[#FB7185] border-2 sm:border-4 border-black" />
     {/* Subtle Top Right Blue/Pink Glow */}
-    <div className="absolute -top-16 -right-16 w-48 h-48 rounded-full bg-[#FECDD3] opacity-40" />
+    <div className="absolute -top-16 -right-16 w-32 h-32 sm:w-48 sm:h-48 rounded-full bg-[#FECDD3] opacity-40" />
   </div>
 );
 

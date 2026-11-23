@@ -77,15 +77,15 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <>
       <header className="sticky top-0 z-40 w-full bg-[#0C0D12] text-white border-b-2 border-black">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 flex items-center justify-between gap-2">
           {/* Brand */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <div className="w-8 h-8 rounded-lg bg-[#FACC15] border-2 border-black flex items-center justify-center font-mono font-black text-black text-base shadow-[1.5px_1.5px_0px_#000000]">
               &gt;_
             </div>
-            <div className="flex items-center gap-2">
-              <span className="font-extrabold text-base tracking-wider text-white">VAREX</span>
-              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700">
+            <div className="flex items-center gap-1.5">
+              <span className="font-extrabold text-sm sm:text-base tracking-wider text-white">VAREX</span>
+              <span className="text-[9px] sm:text-[10px] font-mono font-bold px-1.5 py-0.2 sm:px-2 sm:py-0.5 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700 hidden xs:inline-block">
                 CI/CD
               </span>
             </div>
@@ -94,39 +94,44 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="h-6 w-[1px] bg-zinc-800 hidden md:block" />
 
           {/* Navigation Links */}
-          <nav className="flex items-center gap-2">
+          <nav className="flex items-center gap-1 sm:gap-2">
             <button
               onClick={() => onSelectTab('projects')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'projects'
                   ? 'bg-[#FACC15] text-black border-2 border-black shadow-[2px_2px_0px_#000000]'
                   : 'text-zinc-300 hover:text-white hover:bg-zinc-800/60'
               }`}
+              title="Applications"
             >
               <Layers className={`w-3.5 h-3.5 ${activeTab === 'projects' ? 'text-black' : 'text-zinc-400'}`} />
-              <span>Applications</span>
+              <span className="hidden sm:inline">Applications</span>
+              <span className="sm:hidden">Apps</span>
             </button>
 
             <button
               onClick={() => onSelectTab('audit')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'audit'
                   ? 'bg-[#FACC15] text-black border-2 border-black shadow-[2px_2px_0px_#000000]'
                   : 'text-zinc-300 hover:text-white hover:bg-zinc-800/60'
               }`}
+              title="Audit Trail"
             >
               <FileText className={`w-3.5 h-3.5 ${activeTab === 'audit' ? 'text-black' : 'text-zinc-400'}`} />
-              <span>Audit Trail</span>
+              <span className="hidden sm:inline">Audit Trail</span>
+              <span className="sm:hidden">Audit</span>
             </button>
 
             {isMainAdmin && (
               <button
                 onClick={() => onSelectTab('users')}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer relative ${
+                className={`flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer relative whitespace-nowrap ${
                   activeTab === 'users'
                     ? 'bg-[#FACC15] text-black border-2 border-black shadow-[2px_2px_0px_#000000]'
                     : 'text-zinc-300 hover:text-white hover:bg-zinc-800/60'
                 }`}
+                title="Team"
               >
                 <Users className={`w-3.5 h-3.5 ${activeTab === 'users' ? 'text-black' : 'text-zinc-400'}`} />
                 <span>Team</span>
@@ -142,12 +147,12 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="h-6 w-[1px] bg-zinc-800 hidden md:block" />
 
           {/* User Controls */}
-          <div className="relative">
+          <div className="relative shrink-0">
             <button
               onClick={() => setShowProfileMenu(!showProfileMenu)}
-              className="flex items-center gap-2.5 px-2 py-1 rounded-xl hover:bg-zinc-800/60 transition-colors text-left"
+              className="flex items-center gap-1.5 sm:gap-2.5 px-1.5 sm:px-2 py-1 rounded-xl hover:bg-zinc-800/60 transition-colors text-left cursor-pointer"
             >
-              <div className="w-8 h-8 rounded-full bg-white text-black font-extrabold text-sm flex items-center justify-center border-2 border-black shadow-[1.5px_1.5px_0px_#000000]">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white text-black font-extrabold text-xs sm:text-sm flex items-center justify-center border-2 border-black shadow-[1.5px_1.5px_0px_#000000]">
                 {initial}
               </div>
               <div className="hidden sm:block leading-tight">

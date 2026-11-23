@@ -32,10 +32,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onNavigate
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-[#FAF7EE] relative overflow-hidden select-none">
+    <div className="min-h-screen min-h-[100dvh] flex items-center justify-center p-3 sm:p-4 bg-[#FAF7EE] relative overflow-hidden select-none">
       <BackgroundDecorations />
 
-      <div className="w-full max-w-md bg-white border-2 border-black rounded-3xl shadow-[8px_8px_0px_#000000] p-8 relative z-10 animate-pop-in text-black">
+      <div className="w-full max-w-md bg-white border-2 border-black rounded-2xl sm:rounded-3xl shadow-[4px_4px_0px_#000000] sm:shadow-[8px_8px_0px_#000000] p-5 sm:p-8 relative z-10 animate-pop-in text-black my-4">
         {/* Brand Header */}
         <div className="text-center mb-6">
           <div className="w-12 h-12 rounded-xl bg-[#FACC15] border-2 border-black mx-auto flex items-center justify-center mb-3 text-black font-black font-mono text-xl shadow-[3px_3px_0px_#000000]">

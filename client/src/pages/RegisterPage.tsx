@@ -49,10 +49,10 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigateLogin }) =
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-[#FAF7EE] relative overflow-hidden select-none">
+    <div className="min-h-screen min-h-[100dvh] flex items-center justify-center p-3 sm:p-4 bg-[#FAF7EE] relative overflow-hidden select-none">
       <BackgroundDecorations />
 
-      <div className="w-full max-w-md bg-white border-2 border-black rounded-3xl shadow-[8px_8px_0px_#000000] p-8 relative z-10 animate-pop-in text-black">
+      <div className="w-full max-w-md bg-white border-2 border-black rounded-2xl sm:rounded-3xl shadow-[4px_4px_0px_#000000] sm:shadow-[8px_8px_0px_#000000] p-5 sm:p-8 relative z-10 animate-pop-in text-black my-4">
         <button
           onClick={onNavigateLogin}
           className="neo-btn-white px-3 py-1.5 text-xs flex items-center gap-1.5 mb-5"

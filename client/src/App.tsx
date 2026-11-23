@@ -735,36 +735,38 @@ export const App: React.FC = () => {
                 <div className="space-y-6">
                   {/* Project Workspace Header */}
                   <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-4 border-b-2 border-black">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-3 flex-wrap">
+                    <div className="space-y-2 min-w-0 max-w-full">
+                      <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                         <button
                           onClick={() => setSelectedProjectId(null)}
-                          className="neo-btn-white px-3 py-1.5 text-xs flex items-center gap-1.5 cursor-pointer"
+                          className="neo-btn-white px-3 py-1.5 text-xs flex items-center gap-1.5 cursor-pointer shrink-0"
                         >
                           <ArrowLeft className="w-3.5 h-3.5" />
                           <span>Back</span>
                         </button>
 
-                        <div className="flex items-center gap-2">
-                          <h1 className="text-2xl sm:text-3xl font-black text-black tracking-tight">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-black tracking-tight truncate">
                             {selectedProject.name}
                           </h1>
-                          <span className="px-2.5 py-0.5 rounded-full bg-[#BFDBFE] text-blue-900 border border-black font-mono font-bold text-xs">
+                          <span className="px-2.5 py-0.5 rounded-full bg-[#BFDBFE] text-blue-900 border border-black font-mono font-bold text-xs shrink-0">
                             {selectedProject.slug || selectedProject.name.toLowerCase()}
                           </span>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 text-xs font-mono font-bold text-zinc-700 pl-1">
-                        <FolderGit2 className="w-3.5 h-3.5 text-black" />
-                        <span>{selectedProject.project_path}</span>
+                      <div className="flex items-center gap-2 text-xs font-mono font-bold text-zinc-700 pl-1 min-w-0 max-w-full">
+                        <FolderGit2 className="w-3.5 h-3.5 text-black shrink-0" />
+                        <span className="truncate break-all" title={selectedProject.project_path}>
+                          {selectedProject.project_path}
+                        </span>
                       </div>
-                      <p className="text-xs text-zinc-600 font-medium pl-1">
+                      <p className="text-xs text-zinc-600 font-medium pl-1 line-clamp-2">
                         Configure pipeline steps, environment and deploy your application.
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-6 shrink-0">
+                    <div className="flex items-center gap-4 sm:gap-6 shrink-0 w-full sm:w-auto justify-end">
                       {projectDetailTab === 'steps' && (
                         <HeroGearCubeServer className="w-44 h-24 hidden lg:block" />
                       )}
@@ -778,10 +780,10 @@ export const App: React.FC = () => {
                         <HeroServerPadlock className="w-44 h-24 hidden lg:block" />
                       )}
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                         <button
                           onClick={() => handleTriggerDeploy(selectedProject.id)}
-                          className="neo-btn-yellow px-5 py-2.5 text-xs flex items-center gap-2 cursor-pointer"
+                          className="neo-btn-yellow flex-1 sm:flex-initial px-4 sm:px-5 py-2.5 text-xs flex items-center justify-center gap-2 cursor-pointer"
                         >
                           <Rocket className="w-4 h-4 stroke-[3]" />
                           <span>Deploy</span>
@@ -796,7 +798,7 @@ export const App: React.FC = () => {
                               setEditingProject(selectedProject);
                             }
                           }}
-                          className="neo-btn-white p-2.5 text-xs"
+                          className="neo-btn-white p-2.5 text-xs cursor-pointer shrink-0"
                           title="Project Settings"
                         >
                           <Settings className="w-4 h-4" />
@@ -804,7 +806,7 @@ export const App: React.FC = () => {
 
                         <button
                           onClick={() => handleDeleteProject(selectedProject.id)}
-                          className="neo-btn-white p-2.5 text-xs hover:bg-rose-50"
+                          className="neo-btn-white p-2.5 text-xs hover:bg-rose-50 cursor-pointer shrink-0"
                           title="Delete Project"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -814,7 +816,7 @@ export const App: React.FC = () => {
                   </div>
 
                   {/* Subnav Tabs: Pipeline Steps | Terminal Output | History | Environment */}
-                  <div className="flex items-center gap-2 pb-2 overflow-x-auto border-b-2 border-black/10">
+                  <div className="flex items-center gap-2 pb-2 overflow-x-auto border-b-2 border-black/10 scrollbar-thin">
                     <button
                       onClick={() => setProjectDetailTab('steps')}
                       className={`px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
@@ -948,8 +950,8 @@ export const App: React.FC = () => {
                         </div>
 
                         {/* History Table (Image 2) */}
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-left text-xs">
+                        <div className="overflow-x-auto -mx-1 sm:mx-0">
+                          <table className="w-full text-left text-xs min-w-[680px]">
                             <thead>
                               <tr className="border-b-2 border-black bg-[#FAF7EE] text-black font-extrabold">
                                 <th className="py-2.5 px-3">Run ID</th>

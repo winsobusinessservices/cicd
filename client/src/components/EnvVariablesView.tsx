@@ -220,7 +220,7 @@ export const EnvVariablesView: React.FC<EnvVariablesViewProps> = ({
       </div>
 
       {/* RIGHT COLUMN: Host Env File & Variables Table */}
-      <div className="lg:col-span-9 neo-box p-6 bg-white space-y-5">
+      <div className="lg:col-span-9 neo-box p-3.5 sm:p-6 bg-white space-y-5 min-w-0 max-w-full">
         {/* Toast Alert */}
         {toastMessage && (
           <div className="p-3 rounded-xl bg-[#DCFCE7] border-2 border-black text-[#15803D] font-bold text-xs flex items-center gap-2 shadow-[2px_2px_0px_#000000]">
@@ -230,20 +230,20 @@ export const EnvVariablesView: React.FC<EnvVariablesViewProps> = ({
         )}
 
         {/* Top Subcard: Host Environment File (Image 1) */}
-        <div className="p-4 rounded-xl border-2 border-black bg-[#FAF7EE] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-[2px_2px_0px_#000000]">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <FileText className="w-4 h-4 text-black" />
-              <span className="font-extrabold text-xs text-black">Host Environment File</span>
-              <span className="px-2.5 py-0.5 rounded-full bg-[#BFDBFE] text-blue-900 border border-black font-mono text-[11px] font-bold">
+        <div className="p-3 sm:p-4 rounded-xl border-2 border-black bg-[#FAF7EE] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-[2px_2px_0px_#000000]">
+          <div className="space-y-1 min-w-0 max-w-full">
+            <div className="flex items-center gap-2 flex-wrap min-w-0">
+              <FileText className="w-4 h-4 text-black shrink-0" />
+              <span className="font-extrabold text-xs text-black shrink-0">Host Environment File</span>
+              <span className="px-2.5 py-0.5 rounded-full bg-[#BFDBFE] text-blue-900 border border-black font-mono text-[11px] font-bold truncate max-w-[240px] sm:max-w-none" title={activeFilePath}>
                 {activeFilePath}
               </span>
             </div>
-            <div className="flex items-center gap-2 text-[11px] text-zinc-600 font-medium">
-              <span className="w-2 h-2 rounded-full bg-[#22C55E]" />
+            <div className="flex items-center gap-2 text-[11px] text-zinc-600 font-medium flex-wrap">
+              <span className="w-2 h-2 rounded-full bg-[#22C55E] shrink-0" />
               <span>Live file on disk</span>
-              <span>|</span>
-              <span>Modified: {activeFileMtime ? new Date(activeFileMtime).toLocaleString() : '11/23/2026, 1:01:03 PM'}</span>
+              <span className="hidden xs:inline">|</span>
+              <span className="text-[10px] sm:text-[11px]">Modified: {activeFileMtime ? new Date(activeFileMtime).toLocaleString() : '11/23/2026, 1:01:03 PM'}</span>
             </div>
           </div>
 
@@ -251,7 +251,7 @@ export const EnvVariablesView: React.FC<EnvVariablesViewProps> = ({
             type="button"
             onClick={handleReloadFromDisk}
             disabled={syncing}
-            className="neo-btn-white px-3.5 py-1.5 text-xs flex items-center gap-1.5 shrink-0"
+            className="neo-btn-white px-3.5 py-1.5 text-xs flex items-center gap-1.5 shrink-0 self-start sm:self-auto cursor-pointer"
           >
             <RotateCcw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
             <span>Reload from Disk</span>
@@ -261,7 +261,7 @@ export const EnvVariablesView: React.FC<EnvVariablesViewProps> = ({
         {/* Section Header with Mode Toggle */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2">
           <div className="flex items-center gap-2">
-            <Key className="w-4 h-4 text-black" />
+            <Key className="w-4 h-4 text-black shrink-0" />
             <div>
               <h4 className="text-sm font-extrabold text-black">Environment Variables &amp; Secrets</h4>
               <p className="text-[11px] text-zinc-600">
@@ -271,11 +271,11 @@ export const EnvVariablesView: React.FC<EnvVariablesViewProps> = ({
           </div>
 
           {/* Structured vs Raw Toggle Pill (Image 1) */}
-          <div className="flex items-center border-2 border-black rounded-xl overflow-hidden bg-white shadow-[2px_2px_0px_#000000]">
+          <div className="flex items-center border-2 border-black rounded-xl overflow-hidden bg-white shadow-[2px_2px_0px_#000000] shrink-0">
             <button
               type="button"
               onClick={handleSwitchToStructured}
-              className={`px-3 py-1.5 text-xs font-bold transition-colors ${
+              className={`px-3 py-1.5 text-xs font-bold transition-colors cursor-pointer ${
                 mode === 'structured'
                   ? 'bg-black text-white'
                   : 'bg-white text-black hover:bg-zinc-50'
@@ -286,7 +286,7 @@ export const EnvVariablesView: React.FC<EnvVariablesViewProps> = ({
             <button
               type="button"
               onClick={handleSwitchToRaw}
-              className={`px-3 py-1.5 text-xs font-bold transition-colors ${
+              className={`px-3 py-1.5 text-xs font-bold transition-colors cursor-pointer ${
                 mode === 'raw'
                   ? 'bg-black text-white'
                   : 'bg-white text-black hover:bg-zinc-50'
@@ -299,84 +299,88 @@ export const EnvVariablesView: React.FC<EnvVariablesViewProps> = ({
 
         {/* Content View: Structured Table or Raw Textarea */}
         {mode === 'structured' ? (
-          <div className="space-y-3">
-            {/* Table Header */}
-            <div className="grid grid-cols-12 gap-3 px-3 py-2 bg-[#FAF7EE] border-2 border-black rounded-xl text-xs font-extrabold text-black select-none">
-              <div className="col-span-5">Variable Key</div>
-              <div className="col-span-4">Value</div>
-              <div className="col-span-3 text-right pr-2">Type</div>
-            </div>
+          <div className="space-y-3 min-w-0">
+            <div className="overflow-x-auto -mx-1 sm:mx-0">
+              <div className="min-w-[540px] space-y-2">
+                {/* Table Header */}
+                <div className="grid grid-cols-12 gap-3 px-3 py-2 bg-[#FAF7EE] border-2 border-black rounded-xl text-xs font-extrabold text-black select-none">
+                  <div className="col-span-5">Variable Key</div>
+                  <div className="col-span-4">Value</div>
+                  <div className="col-span-3 text-right pr-2">Type</div>
+                </div>
 
-            {/* Variable Rows */}
-            <div className="space-y-2">
-              {items.map((item, idx) => {
-                const isRevealed = revealedKeys[idx];
+                {/* Variable Rows */}
+                <div className="space-y-2">
+                  {items.map((item, idx) => {
+                    const isRevealed = revealedKeys[idx];
 
-                return (
-                  <div
-                    key={idx}
-                    className="grid grid-cols-12 gap-2.5 items-center p-2 rounded-xl bg-white hover:bg-zinc-50"
-                  >
-                    {/* Key Input */}
-                    <div className="col-span-5">
-                      <input
-                        type="text"
-                        value={item.key}
-                        onChange={(e) => handleUpdateItem(idx, { key: e.target.value })}
-                        readOnly={readOnly}
-                        placeholder="KEY_NAME"
-                        className="neo-input font-mono font-bold"
-                      />
-                    </div>
-
-                    {/* Value Input with Eye Toggle */}
-                    <div className="col-span-4 relative">
-                      <input
-                        type={isRevealed ? 'text' : 'password'}
-                        value={item.value}
-                        onChange={(e) => handleUpdateItem(idx, { value: e.target.value })}
-                        readOnly={readOnly}
-                        placeholder="value"
-                        className="neo-input font-mono pr-8"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => toggleReveal(idx)}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-black"
+                    return (
+                      <div
+                        key={idx}
+                        className="grid grid-cols-12 gap-2.5 items-center p-2 rounded-xl bg-white hover:bg-zinc-50 border border-black/10"
                       >
-                        {isRevealed ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                      </button>
-                    </div>
+                        {/* Key Input */}
+                        <div className="col-span-5">
+                          <input
+                            type="text"
+                            value={item.key}
+                            onChange={(e) => handleUpdateItem(idx, { key: e.target.value })}
+                            readOnly={readOnly}
+                            placeholder="KEY_NAME"
+                            className="neo-input font-mono font-bold text-xs"
+                          />
+                        </div>
 
-                    {/* Type Badge & Row Actions */}
-                    <div className="col-span-3 flex items-center justify-end gap-2">
-                      <span className="px-2.5 py-0.5 rounded-full bg-[#EDE9FE] text-purple-900 border border-black font-extrabold text-[10px] flex items-center gap-1">
-                        <Lock className="w-2.5 h-2.5" /> Secret
-                      </span>
+                        {/* Value Input with Eye Toggle */}
+                        <div className="col-span-4 relative">
+                          <input
+                            type={isRevealed ? 'text' : 'password'}
+                            value={item.value}
+                            onChange={(e) => handleUpdateItem(idx, { value: e.target.value })}
+                            readOnly={readOnly}
+                            placeholder="value"
+                            className="neo-input font-mono pr-8 text-xs"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => toggleReveal(idx)}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-black cursor-pointer"
+                          >
+                            {isRevealed ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
 
-                      <button
-                        type="button"
-                        onClick={() => handleCopyVal(item.value, item.key)}
-                        className="p-1 text-zinc-500 hover:text-black rounded hover:bg-zinc-100"
-                        title="Copy value"
-                      >
-                        {copiedKey === item.key ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                      </button>
+                        {/* Type Badge & Row Actions */}
+                        <div className="col-span-3 flex items-center justify-end gap-2">
+                          <span className="px-2.5 py-0.5 rounded-full bg-[#EDE9FE] text-purple-900 border border-black font-extrabold text-[10px] flex items-center gap-1 shrink-0">
+                            <Lock className="w-2.5 h-2.5" /> Secret
+                          </span>
 
-                      {!readOnly && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveItem(idx)}
-                          className="p-1 text-zinc-400 hover:text-rose-600 rounded hover:bg-rose-50"
-                          title="Delete variable"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+                          <button
+                            type="button"
+                            onClick={() => handleCopyVal(item.value, item.key)}
+                            className="p-1 text-zinc-500 hover:text-black rounded hover:bg-zinc-100 cursor-pointer"
+                            title="Copy value"
+                          >
+                            {copiedKey === item.key ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                          </button>
+
+                          {!readOnly && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveItem(idx)}
+                              className="p-1 text-zinc-400 hover:text-rose-600 rounded hover:bg-rose-50 cursor-pointer"
+                              title="Delete variable"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
 
             {/* Add Variable Dashed Button (Image 1) */}

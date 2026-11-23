@@ -216,50 +216,50 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/60 backdrop-blur-xs overflow-y-auto">
-      <div className="w-full max-w-5xl bg-[#FAF7EE] border-2 border-black rounded-3xl shadow-[8px_8px_0px_#000000] p-6 relative animate-pop-in my-6 text-black">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/60 backdrop-blur-xs overflow-y-auto">
+      <div className="w-full max-w-5xl bg-[#FAF7EE] border-2 border-black rounded-2xl sm:rounded-3xl shadow-[4px_4px_0px_#000000] sm:shadow-[8px_8px_0px_#000000] p-4 sm:p-6 relative animate-pop-in my-3 sm:my-6 text-black max-h-[92vh] overflow-y-auto">
         {/* Top Header (Image 8) */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b-2 border-black">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 pb-4 border-b-2 border-black pr-8 sm:pr-0">
+          <div className="space-y-1.5 min-w-0 max-w-full">
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap min-w-0">
               <button
                 type="button"
                 onClick={onClose}
-                className="neo-btn-white px-3 py-1.5 text-xs flex items-center gap-1.5 cursor-pointer"
+                className="neo-btn-white px-3 py-1.5 text-xs flex items-center gap-1.5 cursor-pointer shrink-0"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Back</span>
               </button>
 
-              <div className="flex items-center gap-2">
-                <h2 className="text-2xl sm:text-3xl font-black text-black">Project Settings</h2>
-                <span className="px-2.5 py-0.5 rounded-full bg-[#BFDBFE] text-blue-900 border border-black text-xs font-mono font-bold">
+              <div className="flex items-center gap-2 min-w-0">
+                <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-black truncate">Project Settings</h2>
+                <span className="px-2.5 py-0.5 rounded-full bg-[#BFDBFE] text-blue-900 border border-black text-xs font-mono font-bold shrink-0">
                   {project.slug || project.name.toLowerCase()}
                 </span>
               </div>
             </div>
 
-            <p className="text-xs text-zinc-600 font-medium pl-1">
+            <p className="text-xs text-zinc-600 font-medium pl-1 line-clamp-1 sm:line-clamp-none">
               Configure your project settings and deployment preferences.
             </p>
           </div>
 
-          <div className="flex items-center gap-4 shrink-0">
+          <div className="flex items-center gap-4 shrink-0 self-end sm:self-auto">
             <GearLaptopIllustration className="w-36 h-20 hidden md:block" />
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg border-2 border-black bg-white hover:bg-zinc-100 shadow-[2px_2px_0px_#000000] cursor-pointer"
+              className="absolute top-4 right-4 sm:relative sm:top-0 sm:right-0 p-1.5 rounded-lg border-2 border-black bg-white hover:bg-zinc-100 shadow-[2px_2px_0px_#000000] cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        {/* Top Horizontal Tabs (Image 8) */}
-        <div className="flex items-center gap-2 py-3 border-b-2 border-black/10 overflow-x-auto">
+        {/* Top Horizontal Tabs: Full horizontal scrollable tabs on mobile, 4 main tabs on desktop */}
+        <div className="flex items-center gap-2 py-3 border-b-2 border-black/10 overflow-x-auto scrollbar-thin">
           <button
             onClick={() => setActiveTab('general')}
-            className={`px-4 py-1.5 rounded-xl font-extrabold text-xs border-2 border-black flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+            className={`px-3.5 sm:px-4 py-1.5 rounded-xl font-extrabold text-xs border-2 border-black flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'general'
                 ? 'bg-[#FACC15] text-black shadow-[2px_2px_0px_#000000]'
                 : 'bg-white text-zinc-700 hover:bg-zinc-50'
@@ -271,7 +271,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
 
           <button
             onClick={() => setActiveTab('build')}
-            className={`px-4 py-1.5 rounded-xl font-extrabold text-xs border-2 border-black flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+            className={`px-3.5 sm:px-4 py-1.5 rounded-xl font-extrabold text-xs border-2 border-black flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'build'
                 ? 'bg-[#FACC15] text-black shadow-[2px_2px_0px_#000000]'
                 : 'bg-white text-zinc-700 hover:bg-zinc-50'
@@ -283,7 +283,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
 
           <button
             onClick={() => setActiveTab('domains')}
-            className={`px-4 py-1.5 rounded-xl font-extrabold text-xs border-2 border-black flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+            className={`px-3.5 sm:px-4 py-1.5 rounded-xl font-extrabold text-xs border-2 border-black flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'domains'
                 ? 'bg-[#FACC15] text-black shadow-[2px_2px_0px_#000000]'
                 : 'bg-white text-zinc-700 hover:bg-zinc-50'
@@ -294,8 +294,20 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
           </button>
 
           <button
+            onClick={() => setActiveTab('access')}
+            className={`px-3.5 sm:px-4 py-1.5 rounded-xl font-extrabold text-xs border-2 border-black flex lg:hidden items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === 'access'
+                ? 'bg-[#FACC15] text-black shadow-[2px_2px_0px_#000000]'
+                : 'bg-white text-zinc-700 hover:bg-zinc-50'
+            }`}
+          >
+            <Shield className="w-3.5 h-3.5" />
+            <span>Access</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('notifications')}
-            className={`px-4 py-1.5 rounded-xl font-extrabold text-xs border-2 border-black flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+            className={`px-3.5 sm:px-4 py-1.5 rounded-xl font-extrabold text-xs border-2 border-black flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'notifications'
                 ? 'bg-[#FACC15] text-black shadow-[2px_2px_0px_#000000]'
                 : 'bg-white text-zinc-700 hover:bg-zinc-50'
@@ -304,12 +316,24 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
             <Sliders className="w-3.5 h-3.5" />
             <span>Advanced</span>
           </button>
+
+          <button
+            onClick={() => setActiveTab('danger')}
+            className={`px-3.5 sm:px-4 py-1.5 rounded-xl font-extrabold text-xs border-2 border-black flex lg:hidden items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === 'danger'
+                ? 'bg-[#FEE2E2] text-rose-700 shadow-[2px_2px_0px_#000000]'
+                : 'bg-white text-rose-600 hover:bg-rose-50'
+            }`}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Danger</span>
+          </button>
         </div>
 
-        {/* Main Body: Left Sidebar + Right Content Area (Image 8) */}
+        {/* Main Body: Left Sidebar (Desktop only) + Right Content Area (Image 8) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 pt-4 items-start">
-          {/* Left Vertical Nav (Image 8) */}
-          <div className="lg:col-span-3 space-y-2">
+          {/* Left Vertical Nav (Desktop only: lg:block) */}
+          <div className="hidden lg:block lg:col-span-3 space-y-2">
             <button
               onClick={() => setActiveTab('general')}
               className={`w-full p-2.5 rounded-xl border-2 border-black font-extrabold text-xs flex items-center justify-between transition-all cursor-pointer ${
@@ -424,8 +448,8 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                     </button>
                   </div>
 
-                  <div className="flex items-start gap-4 pt-1">
-                    <ProjectInfoTerminalBox className="w-16 h-16 shrink-0" />
+                  <div className="flex items-start gap-3 sm:gap-4 pt-1">
+                    <ProjectInfoTerminalBox className="w-12 h-12 sm:w-16 sm:h-16 shrink-0" />
 
                     <div className="space-y-2 flex-1 min-w-0">
                       <div>

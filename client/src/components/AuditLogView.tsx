@@ -168,9 +168,9 @@ export const AuditLogView: React.FC = () => {
       </div>
 
       {/* Table Card (Image 7) */}
-      <div className="neo-box p-4 bg-white overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+      <div className="neo-box p-3 sm:p-4 bg-white overflow-hidden">
+        <div className="overflow-x-auto -mx-1 sm:mx-0">
+          <table className="w-full text-left text-xs min-w-[650px]">
             <thead>
               <tr className="border-b-2 border-black bg-[#FAF7EE] text-black font-extrabold">
                 <th className="py-2.5 px-3">Timestamp</th>

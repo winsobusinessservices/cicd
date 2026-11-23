@@ -141,7 +141,7 @@ export const TerminalViewer: React.FC<TerminalViewerProps> = ({
             )}
           </div>
 
-          <div className="grid grid-cols-3 gap-2 pt-2 border-t-2 border-black/10 text-xs">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-2 border-t-2 border-black/10 text-xs">
             <div>
               <p className="text-[10px] font-bold text-zinc-500 uppercase">Triggered by</p>
               <p className="font-extrabold text-black mt-0.5 truncate">{triggeredBy}</p>
@@ -152,7 +152,7 @@ export const TerminalViewer: React.FC<TerminalViewerProps> = ({
                 {startedAt || 'Just now'}
               </p>
             </div>
-            <div>
+            <div className="col-span-2 sm:col-span-1">
               <p className="text-[10px] font-bold text-zinc-500 uppercase">Duration</p>
               <p className="font-mono font-extrabold text-black mt-0.5">{durationStr}</p>
             </div>
@@ -222,17 +222,17 @@ export const TerminalViewer: React.FC<TerminalViewerProps> = ({
       {/* RIGHT COLUMN: macOS Style Dark Terminal */}
       <div className="lg:col-span-8 neo-box-dark bg-[#0C0D12] overflow-hidden flex flex-col min-h-[460px]">
         {/* Terminal Titlebar */}
-        <div className="flex items-center justify-between px-4 py-3 bg-[#17181F] border-b-2 border-black select-none">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-[#EF4444] border border-black/40" />
-            <div className="w-3 h-3 rounded-full bg-[#FACC15] border border-black/40" />
-            <div className="w-3 h-3 rounded-full bg-[#22C55E] border border-black/40" />
-            <span className="font-mono text-xs font-bold text-zinc-300 ml-2">
+        <div className="flex items-center justify-between px-3 sm:px-4 py-3 bg-[#17181F] border-b-2 border-black select-none gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-3 h-3 rounded-full bg-[#EF4444] border border-black/40 shrink-0" />
+            <div className="w-3 h-3 rounded-full bg-[#FACC15] border border-black/40 shrink-0" />
+            <div className="w-3 h-3 rounded-full bg-[#22C55E] border border-black/40 shrink-0" />
+            <span className={`font-mono text-xs font-bold text-zinc-300 ml-1 sm:ml-2 truncate ${showSearch ? 'hidden sm:inline' : ''}`}>
               &gt;_ Terminal Output
             </span>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 shrink-0">
             {showSearch ? (
               <div className="flex items-center gap-1 bg-[#0C0D12] border border-zinc-700 rounded-lg px-2 py-0.5 text-xs">
                 <Search className="w-3 h-3 text-zinc-400" />
@@ -242,7 +242,7 @@ export const TerminalViewer: React.FC<TerminalViewerProps> = ({
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Find..."
-                  className="bg-transparent text-white font-mono text-xs focus:outline-none w-28 placeholder:text-zinc-600"
+                  className="bg-transparent text-white font-mono text-xs focus:outline-none w-24 sm:w-28 placeholder:text-zinc-600"
                 />
                 <button onClick={() => setShowSearch(false)} className="text-zinc-500 hover:text-white">
                   <X className="w-3 h-3" />

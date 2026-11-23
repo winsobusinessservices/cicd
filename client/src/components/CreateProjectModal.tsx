@@ -208,25 +208,25 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
-      <div className="w-full max-w-3xl bg-white border-2 border-black rounded-3xl shadow-[8px_8px_0px_#000000] p-7 relative animate-pop-in my-8 text-black">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
+      <div className="w-full max-w-3xl bg-white border-2 border-black rounded-2xl sm:rounded-3xl shadow-[4px_4px_0px_#000000] sm:shadow-[8px_8px_0px_#000000] p-4 sm:p-7 relative animate-pop-in my-4 sm:my-8 text-black max-h-[92vh] overflow-y-auto">
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-5 right-5 p-1.5 text-black hover:bg-zinc-100 rounded-lg border-2 border-black shadow-[2px_2px_0px_#000000] transition-colors cursor-pointer"
+          className="absolute top-4 right-4 sm:top-5 sm:right-5 p-1.5 text-black hover:bg-zinc-100 rounded-lg border-2 border-black shadow-[2px_2px_0px_#000000] transition-colors cursor-pointer"
         >
           <X className="w-4 h-4" />
         </button>
 
         {/* Header */}
-        <div className="flex items-start justify-between gap-4 mb-6 pb-4 border-b-2 border-black">
+        <div className="flex items-start justify-between gap-4 mb-5 sm:mb-6 pb-4 border-b-2 border-black pr-8 sm:pr-0">
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-2xl font-black text-black">
+              <h2 className="text-xl sm:text-2xl font-black text-black">
                 <span>Create </span>
                 <span className="highlight-yellow">New Project</span>
               </h2>
-              <DoodleSparks className="w-6 h-6 inline-block" />
+              <DoodleSparks className="w-5 h-5 sm:w-6 sm:h-6 inline-block" />
             </div>
             <p className="text-xs text-zinc-600 mt-1 font-medium">
               Connect a host directory, write your deployment script or steps, and launch your automated pipeline.

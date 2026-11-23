@@ -219,9 +219,9 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
           </span>
         </div>
 
-        <div className="neo-box p-4 bg-white overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+        <div className="neo-box p-3 sm:p-4 bg-white overflow-hidden">
+          <div className="overflow-x-auto -mx-1 sm:mx-0">
+            <table className="w-full text-left text-xs min-w-[560px]">
               <thead>
                 <tr className="border-b-2 border-black bg-[#FAF7EE] text-black font-extrabold">
                   <th className="py-2.5 px-3">Name &amp; Username</th>
@@ -305,17 +305,17 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
 
       {/* Create Approved Member Modal (Image 5) */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="w-full max-w-xl bg-white border-2 border-black rounded-3xl shadow-[6px_6px_0px_#000000] p-7 relative animate-pop-in text-black">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
+          <div className="w-full max-w-xl bg-white border-2 border-black rounded-3xl shadow-[4px_4px_0px_#000000] sm:shadow-[6px_6px_0px_#000000] p-4 sm:p-7 relative animate-pop-in text-black my-6 max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => setShowAddModal(false)}
-              className="absolute top-5 right-5 p-1 text-black hover:bg-zinc-100 rounded-lg border-2 border-black shadow-[2px_2px_0px_#000000]"
+              className="absolute top-4 right-4 sm:top-5 sm:right-5 p-1 text-black hover:bg-zinc-100 rounded-lg border-2 border-black shadow-[2px_2px_0px_#000000] cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
 
             {/* Header with Yellow Highlight & Sparks (Image 5) */}
-            <div className="mb-5">
+            <div className="mb-5 pr-8 sm:pr-0">
               <div className="flex items-center gap-2">
                 <h3 className="text-xl font-black text-black">
                   <span>Create </span>
@@ -330,7 +330,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
 
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
               {/* Form on Left */}
-              <form onSubmit={handleAddDirect} className="md:col-span-8 space-y-3.5">
+              <form onSubmit={handleAddDirect} className="md:col-span-7 lg:col-span-8 space-y-3.5">
                 <div>
                   <label className="block text-xs font-bold text-black mb-1">Full Name</label>
                   <div className="relative">

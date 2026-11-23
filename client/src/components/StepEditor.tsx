@@ -130,7 +130,7 @@ export const StepEditor: React.FC<StepEditorProps> = ({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
       {/* LEFT COLUMN: Execution Pipeline Sequence */}
-      <div className="lg:col-span-4 neo-box p-4 bg-white space-y-4">
+      <div className="lg:col-span-4 neo-box p-3.5 sm:p-4 bg-white space-y-4 min-w-0 max-w-full">
         {/* Header */}
         <div className="flex items-start gap-3">
           <div className="w-8 h-8 rounded-lg bg-[#FAF7EE] border-2 border-black flex items-center justify-center shrink-0">
@@ -202,11 +202,11 @@ export const StepEditor: React.FC<StepEditorProps> = ({
       </div>
 
       {/* RIGHT COLUMN: Configure Pipeline Step */}
-      <div className="lg:col-span-8 neo-box p-6 bg-white space-y-5">
+      <div className="lg:col-span-8 neo-box p-4 sm:p-6 bg-white space-y-4 sm:space-y-5 min-w-0 max-w-full">
         {selectedStep ? (
           <>
             {/* Header */}
-            <div className="flex items-center justify-between pb-3 border-b-2 border-black">
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b-2 border-black">
               <div className="flex items-center gap-3">
                 <span className="px-3 py-1 rounded-full bg-[#E9D5FF] text-black font-extrabold text-xs border-2 border-black">
                   Step {selectedIndex + 1}
