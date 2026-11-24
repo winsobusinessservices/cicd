@@ -71,15 +71,10 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   onNavigateServices,
   onDeleteProject,
 }) => {
-  const [activeTab, setActiveTab] = useState<'general' | 'build' | 'webhooks' | 'domains' | 'access' | 'notifications' | 'danger'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'build' | 'webhooks' | 'notifications' | 'danger'>('general');
   const [name, setName] = useState(project.name || '');
   const [description, setDescription] = useState(project.description || '');
   const [projectPath, setProjectPath] = useState(project.project_path || '');
-  const [buildCommand, setBuildCommand] = useState('npm run build');
-  const [outputDir, setOutputDir] = useState('dist');
-  const [branch, setBranch] = useState('main');
-  const [autoDeploy, setAutoDeploy] = useState(true);
-  const [isEditingInfo, setIsEditingInfo] = useState(false);
 
   // Webhooks & Automation State
   const [webhookEnabled, setWebhookEnabled] = useState(Boolean(project.webhook_enabled));
@@ -332,30 +327,6 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
           </button>
 
           <button
-            onClick={() => setActiveTab('domains')}
-            className={`px-3.5 sm:px-4 py-1.5 rounded-xl font-extrabold text-xs border-2 border-black flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === 'domains'
-                ? 'bg-[#FACC15] text-black shadow-[2px_2px_0px_#000000]'
-                : 'bg-white text-zinc-700 hover:bg-zinc-50'
-            }`}
-          >
-            <Globe className="w-3.5 h-3.5" />
-            <span>Domains &amp; SSL</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('access')}
-            className={`px-3.5 sm:px-4 py-1.5 rounded-xl font-extrabold text-xs border-2 border-black flex lg:hidden items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === 'access'
-                ? 'bg-[#FACC15] text-black shadow-[2px_2px_0px_#000000]'
-                : 'bg-white text-zinc-700 hover:bg-zinc-50'
-            }`}
-          >
-            <Shield className="w-3.5 h-3.5" />
-            <span>Access</span>
-          </button>
-
-          <button
             onClick={() => setActiveTab('notifications')}
             className={`px-3.5 sm:px-4 py-1.5 rounded-xl font-extrabold text-xs border-2 border-black flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'notifications'
@@ -363,8 +334,8 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                 : 'bg-white text-zinc-700 hover:bg-zinc-50'
             }`}
           >
-            <Sliders className="w-3.5 h-3.5" />
-            <span>Advanced</span>
+            <Bell className="w-3.5 h-3.5" />
+            <span>Notifications</span>
           </button>
 
           <button
@@ -429,34 +400,6 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
             </button>
 
             <button
-              onClick={() => setActiveTab('domains')}
-              className={`w-full p-2.5 rounded-xl border-2 border-black font-extrabold text-xs flex items-center justify-between transition-all cursor-pointer ${
-                activeTab === 'domains'
-                  ? 'bg-[#FACC15] text-black shadow-[2px_2px_0px_#000000]'
-                  : 'bg-white text-zinc-700 hover:bg-zinc-50'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Globe className="w-4 h-4" />
-                <span>Domains &amp; SSL</span>
-              </div>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('access')}
-              className={`w-full p-2.5 rounded-xl border-2 border-black font-extrabold text-xs flex items-center justify-between transition-all cursor-pointer ${
-                activeTab === 'access'
-                  ? 'bg-[#FACC15] text-black shadow-[2px_2px_0px_#000000]'
-                  : 'bg-white text-zinc-700 hover:bg-zinc-50'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Shield className="w-4 h-4" />
-                <span>Access Control</span>
-              </div>
-            </button>
-
-            <button
               onClick={() => setActiveTab('notifications')}
               className={`w-full p-2.5 rounded-xl border-2 border-black font-extrabold text-xs flex items-center justify-between transition-all cursor-pointer ${
                 activeTab === 'notifications'
@@ -487,236 +430,157 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
 
           {/* Right Main Section (Image 8) */}
           <div className="lg:col-span-9 space-y-4">
-            {/* VIEW 1: GENERAL (Image 8 - 4 Cards Grid) */}
+            {/* VIEW 1: GENERAL */}
             {activeTab === 'general' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Card 1: Project Information */}
-                <div className="neo-box p-5 bg-white space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <Layers className="w-4 h-4 text-black" />
-                        <h4 className="text-xs font-black text-black">Project Information</h4>
+              <div className="space-y-4">
+                {/* Main Card: Project Details & Configuration */}
+                <div className="neo-box p-5 bg-white space-y-4">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b-2 border-black/10">
+                    <div className="flex items-center gap-2">
+                      <Layers className="w-5 h-5 text-black" />
+                      <div>
+                        <h4 className="text-sm font-black text-black">Project Details &amp; Configuration</h4>
+                        <p className="text-xs text-zinc-500 font-medium">
+                          Core application properties and server directory path.
+                        </p>
                       </div>
-                      <p className="text-[11px] text-zinc-500 font-medium mt-0.5">
-                        Basic information about your project.
-                      </p>
+                    </div>
+                    <span className="px-2.5 py-1 rounded-lg bg-[#BFDBFE] text-blue-900 border border-black font-mono font-bold text-xs">
+                      Slug: {project.slug || project.name.toLowerCase()}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Project Name */}
+                    <div className="space-y-1">
+                      <label className="text-xs font-black text-black uppercase tracking-wider">
+                        Project Name
+                      </label>
+                      <input
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="e.g. Todayfix"
+                        className="neo-input font-bold text-xs py-2"
+                      />
+                    </div>
+
+                    {/* Host Working Directory */}
+                    <div className="space-y-1">
+                      <label className="text-xs font-black text-black uppercase tracking-wider flex items-center justify-between">
+                        <span>Host Working Directory</span>
+                        <span className="text-[10px] text-zinc-500 font-normal">Server path</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={projectPath}
+                        onChange={(e) => setProjectPath(e.target.value)}
+                        placeholder="e.g. /var/www/todayfix"
+                        className="neo-input font-mono text-xs py-2"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Project Description */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-black text-black uppercase tracking-wider">
+                      Description (Optional)
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="e.g. Production web application and API service"
+                      className="neo-input text-xs py-2"
+                    />
+                  </div>
+                </div>
+
+                {/* Grid with 3 Connected Summary Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Card A: Webhooks & Cron Summary */}
+                  <div className="neo-box p-4 bg-white flex flex-col justify-between space-y-3">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 font-black text-xs text-black">
+                          <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
+                          <span>Automation</span>
+                        </div>
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border border-black ${
+                            webhookEnabled || scheduleEnabled
+                              ? 'bg-[#DCFCE7] text-emerald-800'
+                              : 'bg-zinc-100 text-zinc-600'
+                          }`}
+                        >
+                          {webhookEnabled || scheduleEnabled ? 'ACTIVE' : 'IDLE'}
+                        </span>
+                      </div>
+                      <div className="text-xs text-zinc-600 space-y-1">
+                        <p className="flex items-center justify-between">
+                          <span className="font-bold">Webhook:</span>
+                          <span className="font-mono text-[11px] truncate max-w-[120px]">{webhookEnabled ? `branch: ${webhookBranch}` : 'Disabled'}</span>
+                        </p>
+                        <p className="flex items-center justify-between">
+                          <span className="font-bold">Schedule:</span>
+                          <span className="font-mono text-[11px] truncate max-w-[120px]">{scheduleEnabled ? scheduleCron : 'None'}</span>
+                        </p>
+                      </div>
                     </div>
 
                     <button
                       type="button"
-                      onClick={() => setIsEditingInfo(!isEditingInfo)}
-                      className="neo-btn-white px-2.5 py-1 text-[11px] flex items-center gap-1 cursor-pointer"
+                      onClick={() => setActiveTab('webhooks')}
+                      className="neo-btn-white w-full py-1.5 text-[11px] font-extrabold flex items-center justify-center gap-1 cursor-pointer"
                     >
-                      <Edit2 className="w-3 h-3" />
-                      <span>{isEditingInfo ? 'Done' : 'Edit'}</span>
+                      <span>Configure Webhooks</span>
+                      <span>&rarr;</span>
                     </button>
                   </div>
 
-                  <div className="flex items-start gap-3 sm:gap-4 pt-1">
-                    <ProjectInfoTerminalBox className="w-12 h-12 sm:w-16 sm:h-16 shrink-0" />
-
-                    <div className="space-y-2 flex-1 min-w-0">
-                      <div>
-                        <p className="text-[10px] font-bold text-zinc-500 uppercase">Project Name</p>
-                        {isEditingInfo ? (
-                          <input
-                            type="text"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            className="neo-input text-xs py-1 mt-0.5"
-                          />
-                        ) : (
-                          <p className="font-extrabold text-sm text-black truncate">{name}</p>
-                        )}
-                      </div>
-
-                      <div>
-                        <p className="text-[10px] font-bold text-zinc-500 uppercase">Project Description</p>
-                        {isEditingInfo ? (
-                          <textarea
-                            rows={2}
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                            className="neo-input text-xs py-1 mt-0.5"
-                          />
-                        ) : (
-                          <p className="text-xs text-zinc-600 line-clamp-2">
-                            {description || 'Application for managing pipeline and deployments.'}
-                          </p>
-                        )}
-                      </div>
-
-                      {isEditingInfo && (
-                        <div>
-                          <p className="text-[10px] font-bold text-zinc-500 uppercase">Host Working Directory</p>
-                          <input
-                            type="text"
-                            value={projectPath}
-                            onChange={(e) => setProjectPath(e.target.value)}
-                            className="neo-input text-xs font-mono py-1 mt-0.5"
-                          />
+                  {/* Card B: Environment Variables Summary */}
+                  <div className="neo-box p-4 bg-white flex flex-col justify-between space-y-3">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 font-black text-xs text-black">
+                          <Globe className="w-4 h-4 text-blue-600" />
+                          <span>Environment</span>
                         </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Card 2: Deployment Settings */}
-                <div className="neo-box p-5 bg-white space-y-3">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <Rocket className="w-4 h-4 text-black" />
-                      <h4 className="text-xs font-black text-black">Deployment Settings</h4>
-                    </div>
-                    <p className="text-[11px] text-zinc-500 font-medium mt-0.5">
-                      Configure how this project is deployed.
-                    </p>
-                  </div>
-
-                  <div className="space-y-3 pt-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <div>
-                        <p className="text-xs font-black text-black">Auto Deploy</p>
-                        <p className="text-[11px] text-zinc-500">Automatically deploy on every successful push.</p>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold border border-black bg-[#EDE9FE] text-purple-900">
+                          {envCount} VARS
+                        </span>
                       </div>
+                      <p className="text-[11px] text-zinc-600 font-medium line-clamp-2">
+                        {envKeys.length > 0 ? envKeys.join(', ') : 'No environment variables set.'}
+                      </p>
+                    </div>
+
+                    {onNavigateEnv && (
                       <button
                         type="button"
-                        onClick={() => setAutoDeploy(!autoDeploy)}
-                        className={`w-11 h-6 rounded-full border-2 border-black transition-colors relative cursor-pointer shrink-0 ${
-                          autoDeploy ? 'bg-[#7C3AED]' : 'bg-zinc-200'
-                        }`}
+                        onClick={onNavigateEnv}
+                        className="neo-btn-white w-full py-1.5 text-[11px] font-extrabold flex items-center justify-center gap-1 cursor-pointer"
                       >
-                        <span
-                          className={`w-4 h-4 rounded-full bg-white border border-black absolute top-0.5 transition-all ${
-                            autoDeploy ? 'right-0.5' : 'left-0.5'
-                          }`}
-                        />
+                        <span>Manage Variables</span>
+                        <span>&rarr;</span>
                       </button>
-                    </div>
-
-                    <div>
-                      <p className="text-xs font-black text-black mb-1">Branch to Deploy</p>
-                      <p className="text-[11px] text-zinc-500 mb-1.5">Select the branch to deploy.</p>
-                      <select
-                        value={branch}
-                        onChange={(e) => setBranch(e.target.value)}
-                        className="neo-input font-mono text-xs cursor-pointer py-1.5"
-                      >
-                        <option value="main">main</option>
-                        <option value="master">master</option>
-                        <option value="production">production</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Card 3: Build Settings */}
-                <div className="neo-box p-5 bg-white space-y-3">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <Layers className="w-4 h-4 text-black" />
-                      <h4 className="text-xs font-black text-black">Build Settings</h4>
-                    </div>
-                    <p className="text-[11px] text-zinc-500 font-medium mt-0.5">
-                      Customize build configuration for your project.
-                    </p>
-                  </div>
-
-                  <div className="space-y-3 pt-1">
-                    <div>
-                      <label className="text-xs font-black text-black flex items-center gap-1 mb-1">
-                        <span>Build Command</span>
-                        <HelpCircle className="w-3.5 h-3.5 text-zinc-400" />
-                      </label>
-                      <input
-                        type="text"
-                        value={buildCommand}
-                        onChange={(e) => setBuildCommand(e.target.value)}
-                        className="neo-input font-mono text-xs py-1.5"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-black text-black flex items-center gap-1 mb-1">
-                        <span>Output Directory</span>
-                        <HelpCircle className="w-3.5 h-3.5 text-zinc-400" />
-                      </label>
-                      <input
-                        type="text"
-                        value={outputDir}
-                        onChange={(e) => setOutputDir(e.target.value)}
-                        className="neo-input font-mono text-xs py-1.5"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Card 4: Environment */}
-                <div className="neo-box p-5 bg-white flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-start justify-between pb-1">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <Globe className="w-4 h-4 text-black" />
-                          <h4 className="text-xs font-black text-black">Environment</h4>
-                        </div>
-                        <p className="text-[11px] text-zinc-500 font-medium mt-0.5">
-                          Manage environment settings for this project.
-                        </p>
-                      </div>
-
-                      {onNavigateEnv && (
-                        <button
-                          type="button"
-                          onClick={onNavigateEnv}
-                          className="px-2.5 py-1 rounded-lg bg-[#EDE9FE] text-purple-900 border border-black font-extrabold text-[10px] flex items-center gap-1 hover:bg-[#DDD6FE] cursor-pointer shrink-0"
-                        >
-                          <span>Manage Variables</span>
-                          <span>&rarr;</span>
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-1.5 text-xs text-zinc-700 font-bold my-2">
-                      <Info className="w-3.5 h-3.5 text-blue-600" />
-                      <span>{envCount} environment variables configured</span>
-                      <span className="w-2 h-2 rounded-full bg-[#22C55E]" />
-                    </div>
-
-                    {envKeys.length > 0 ? (
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {envKeys.map((k, i) => (
-                          <span
-                            key={k}
-                            className={`px-2.5 py-0.5 rounded-full border border-black font-mono text-[11px] font-bold ${
-                              i % 2 === 0 ? 'bg-[#EDE9FE] text-purple-900' : 'bg-[#DCFCE7] text-emerald-900'
-                            }`}
-                          >
-                            {k}
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-zinc-500">No variables configured yet.</p>
                     )}
                   </div>
 
-                  <div className="flex justify-end pt-2">
-                    <LaptopShieldIllustration className="w-24 h-16" />
-                  </div>
-                </div>
-
-                {/* Card 5: Container Services (Docker Compose) */}
-                <div className="neo-box p-5 bg-white flex flex-col justify-between md:col-span-2">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <Boxes className="w-4 h-4 text-black" />
-                        <h4 className="text-xs font-black text-black">Live Container &amp; Docker Compose Terminals</h4>
+                  {/* Card C: Multi-Container Services Summary */}
+                  <div className="neo-box p-4 bg-white flex flex-col justify-between space-y-3">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 font-black text-xs text-black">
+                          <Boxes className="w-4 h-4 text-emerald-600" />
+                          <span>Containers</span>
+                        </div>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold border border-black bg-[#FEF08A] text-amber-900">
+                          SERVICES
+                        </span>
                       </div>
-                      <p className="text-[11px] text-zinc-500 font-medium">
-                        Configure multiple live terminals to stream individual container logs (frontend, backend, database).
+                      <p className="text-[11px] text-zinc-600 font-medium">
+                        Live terminal streams and lifecycle management for Docker Compose.
                       </p>
                     </div>
 
@@ -724,10 +588,9 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                       <button
                         type="button"
                         onClick={onNavigateServices}
-                        className="px-3 py-1.5 rounded-xl bg-[#FACC15] hover:bg-yellow-400 text-black border-2 border-black font-black text-xs flex items-center gap-1.5 cursor-pointer shadow-[2px_2px_0px_#000]"
+                        className="neo-btn-white w-full py-1.5 text-[11px] font-extrabold flex items-center justify-center gap-1 cursor-pointer"
                       >
-                        <Boxes className="w-3.5 h-3.5" />
-                        <span>Open Live Container Logs</span>
+                        <span>View Terminals</span>
                         <span>&rarr;</span>
                       </button>
                     )}
@@ -1137,50 +1000,58 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
               </div>
             )}
 
-            {/* VIEW 3: DOMAINS & SSL */}
-            {activeTab === 'domains' && (
-              <div className="neo-box p-5 bg-white space-y-4">
-                <div className="flex items-center gap-2 pb-2 border-b-2 border-black/10">
-                  <Globe className="w-4 h-4 text-black" />
-                  <h4 className="text-xs font-black text-black">Domains &amp; SSL Routing</h4>
-                </div>
-                <p className="text-xs text-zinc-600">
-                  Configure custom domain routing, reverse proxy targets, and automatic TLS certificates.
-                </p>
-                <div className="p-4 rounded-xl bg-[#FAF7EE] border-2 border-black text-xs font-mono">
-                  Default domain: <strong>{project.slug || project.name.toLowerCase()}.varex.local</strong>
-                </div>
-              </div>
-            )}
-
-            {/* VIEW 4: ACCESS CONTROL */}
-            {activeTab === 'access' && (
-              <div className="neo-box p-5 bg-white space-y-4">
-                <div className="flex items-center gap-2 pb-2 border-b-2 border-black/10">
-                  <Shield className="w-4 h-4 text-black" />
-                  <h4 className="text-xs font-black text-black">Access Control &amp; Permissions</h4>
-                </div>
-                <p className="text-xs text-zinc-600">
-                  Manage deployment authorization requirements and access level for this application.
-                </p>
-                <div className="p-4 rounded-xl bg-[#EFF6FF] border-2 border-black text-xs font-medium">
-                  Currently, Main Administrators have full write/deploy permissions. Sub Admins can trigger deployment runs.
-                </div>
-              </div>
-            )}
-
-            {/* VIEW 5: NOTIFICATIONS */}
+            {/* VIEW: NOTIFICATIONS (Prepared for upcoming integration) */}
             {activeTab === 'notifications' && (
-              <div className="neo-box p-5 bg-white space-y-4">
-                <div className="flex items-center gap-2 pb-2 border-b-2 border-black/10">
-                  <Bell className="w-4 h-4 text-black" />
-                  <h4 className="text-xs font-black text-black">Deployment Notifications</h4>
+              <div className="neo-box p-6 bg-white space-y-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b-2 border-black/10">
+                  <div className="flex items-center gap-2">
+                    <Bell className="w-5 h-5 text-black" />
+                    <div>
+                      <h4 className="text-sm font-black text-black">Deployment Notifications</h4>
+                      <p className="text-xs text-zinc-500 font-medium">
+                        Broadcast build alerts to Discord, Slack, and Telegram when pipelines run.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full bg-[#FEF08A] text-amber-900 border border-black font-extrabold text-[11px] tracking-wide uppercase">
+                    Coming Soon
+                  </span>
                 </div>
-                <p className="text-xs text-zinc-600">
-                  Send webhook notifications to Slack, Discord, or custom endpoints upon deployment events.
-                </p>
-                <div className="p-4 rounded-xl bg-[#FAF7EE] border-2 border-black text-xs text-zinc-500 font-medium">
-                  No active webhooks configured.
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                  <div className="p-4 rounded-xl border-2 border-black bg-[#FAF7EE] space-y-2">
+                    <div className="font-extrabold text-xs text-black flex items-center gap-1.5">
+                      <span>💬</span> <span>Discord Webhook</span>
+                    </div>
+                    <p className="text-[11px] text-zinc-600 leading-relaxed">
+                      Instant message alerts to your Discord channel when deployments start, succeed, or fail.
+                    </p>
+                  </div>
+
+                  <div className="p-4 rounded-xl border-2 border-black bg-[#FAF7EE] space-y-2">
+                    <div className="font-extrabold text-xs text-black flex items-center gap-1.5">
+                      <span>⚡</span> <span>Slack Webhook</span>
+                    </div>
+                    <p className="text-[11px] text-zinc-600 leading-relaxed">
+                      Rich Slack message cards with commit author, commit message, and build duration stats.
+                    </p>
+                  </div>
+
+                  <div className="p-4 rounded-xl border-2 border-black bg-[#FAF7EE] space-y-2">
+                    <div className="font-extrabold text-xs text-black flex items-center gap-1.5">
+                      <span>✈️</span> <span>Telegram Bot</span>
+                    </div>
+                    <p className="text-[11px] text-zinc-600 leading-relaxed">
+                      Direct Telegram push notifications for mobile alerts whenever a production build fails.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-[#EFF6FF] border-2 border-black text-xs font-medium text-blue-950 flex items-center gap-2">
+                  <Info className="w-4 h-4 text-blue-600 shrink-0" />
+                  <span>
+                    Notification handlers are prepared in the architecture and will be connected in an upcoming update!
+                  </span>
                 </div>
               </div>
             )}
