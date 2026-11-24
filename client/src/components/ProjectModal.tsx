@@ -42,7 +42,7 @@ interface ProjectModalProps {
     name: string;
     description: string;
     project_path: string;
-    env_vars: Record<string, string>;
+    env_vars?: Record<string, string>;
     steps: PipelineStep[];
     webhook_secret?: string;
     webhook_branch?: string;
@@ -234,7 +234,6 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
         name,
         description,
         project_path: projectPath,
-        env_vars: project.env_vars || {},
         steps: finalSteps.length > 0 ? finalSteps : project.steps || [],
         webhook_secret: webhookSecret,
         webhook_branch: webhookBranch,

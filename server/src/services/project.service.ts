@@ -343,7 +343,11 @@ export class ProjectService {
 
     // Sync to disk if env_vars was provided
     if (data.env_vars) {
-      this.syncEnvFileToDisk(resolvedPath, data.env_vars, name);
+      try {
+        this.syncEnvFileToDisk(resolvedPath, data.env_vars, name);
+      } catch (err: any) {
+        console.warn(`[ProjectService] Warning: Could not write .env to disk (${resolvedPath}):`, err.message);
+      }
     }
 
     return this.getProjectById(id);

@@ -309,7 +309,7 @@ export const App: React.FC = () => {
     name: string;
     description: string;
     project_path: string;
-    env_vars: Record<string, string>;
+    env_vars?: Record<string, string>;
     steps: PipelineStep[];
     webhook_secret?: string;
     webhook_branch?: string;
