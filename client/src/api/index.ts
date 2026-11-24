@@ -22,6 +22,18 @@ export interface PipelineStep {
   continue_on_error: boolean;
 }
 
+export interface ProjectServiceItem {
+  id?: number;
+  project_id?: number;
+  name: string;
+  log_command: string;
+  working_dir?: string;
+  color?: string;
+  display_order?: number;
+  status?: 'STREAMING' | 'STOPPED' | 'ERROR';
+  startedAt?: string | null;
+}
+
 export interface Project {
   id: number;
   name: string;
@@ -36,9 +48,11 @@ export interface Project {
   created_at: string;
   updated_at: string;
   step_count?: number;
+  service_count?: number;
   last_deploy_status?: 'QUEUED' | 'RUNNING' | 'SUCCESS' | 'FAILED' | 'ABORTED' | null;
   last_deploy_at?: string | null;
   steps?: PipelineStep[];
+  services?: ProjectServiceItem[];
 }
 
 export interface Deployment {
@@ -188,6 +202,38 @@ export const api = {
     request<{ message: string; steps: PipelineStep[] }>(`/projects/${projectId}/steps`, {
       method: 'PUT',
       body: JSON.stringify({ steps }),
+    }),
+
+  // Project Services (Multi-container & Docker Compose Live Logs)
+  getProjectServices: (projectId: number) =>
+    request<ProjectServiceItem[]>(`/projects/${projectId}/services`),
+
+  saveProjectServices: (projectId: number, services: ProjectServiceItem[]) =>
+    request<{ message: string; services: ProjectServiceItem[] }>(`/projects/${projectId}/services`, {
+      method: 'PUT',
+      body: JSON.stringify({ services }),
+    }),
+
+  startServiceLog: (projectId: number, serviceId: number) =>
+    request<{ status: 'STREAMING' | 'STOPPED' | 'ERROR'; logs: string; command: string }>(
+      `/projects/${projectId}/services/${serviceId}/start`,
+      { method: 'POST' }
+    ),
+
+  stopServiceLog: (projectId: number, serviceId: number) =>
+    request<{ status: string; message: string }>(
+      `/projects/${projectId}/services/${serviceId}/stop`,
+      { method: 'POST' }
+    ),
+
+  getServiceLogs: (projectId: number, serviceId: number) =>
+    request<{ status: 'STREAMING' | 'STOPPED' | 'ERROR'; logs: string; command: string; startedAt: string | null }>(
+      `/projects/${projectId}/services/${serviceId}/logs`
+    ),
+
+  clearServiceLogs: (projectId: number, serviceId: number) =>
+    request<{ message: string }>(`/projects/${projectId}/services/${serviceId}/clear`, {
+      method: 'POST',
     }),
 
   // Deployments

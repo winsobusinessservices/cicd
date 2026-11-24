@@ -22,7 +22,8 @@ import {
   MoreHorizontal,
   Folder,
   Calendar,
-  ChevronDown
+  ChevronDown,
+  Boxes
 } from 'lucide-react';
 import { api, setAuthToken, getAuthToken, User, Project, Deployment, PipelineStep } from './api';
 import { Navbar } from './components/Navbar';
@@ -33,6 +34,7 @@ import { CreateProjectModal } from './components/CreateProjectModal';
 import { EnvVariablesView } from './components/EnvVariablesView';
 import { UserManagementView } from './components/UserManagementView';
 import { AuditLogView } from './components/AuditLogView';
+import { LiveServicesLogViewer } from './components/LiveServicesLogViewer';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import {
@@ -66,7 +68,8 @@ export const App: React.FC = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [projectDetailTab, setProjectDetailTab] = useState<'steps' | 'logs' | 'history' | 'env'>('steps');
+  const [projectDetailTab, setProjectDetailTab] = useState<'steps' | 'logs' | 'services' | 'history' | 'env'>('steps');
+  const [projectServicesCount, setProjectServicesCount] = useState<number>(0);
 
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -205,6 +208,9 @@ export const App: React.FC = () => {
       api.getProject(selectedProjectId).then((proj) => {
         setSelectedProject(proj);
       });
+      api.getProjectServices(selectedProjectId).then((srvs) => {
+        setProjectServicesCount(srvs.length);
+      }).catch(() => {});
       api.getDeployHistory(selectedProjectId).then(async (history) => {
         setDeployHistory(history);
         if (history.length > 0) {
@@ -214,6 +220,7 @@ export const App: React.FC = () => {
       });
     } else {
       setSelectedProject(null);
+      setProjectServicesCount(0);
     }
   }, [selectedProjectId, projectDetailTab]);
 
@@ -770,7 +777,7 @@ export const App: React.FC = () => {
                       {projectDetailTab === 'steps' && (
                         <HeroGearCubeServer className="w-44 h-24 hidden lg:block" />
                       )}
-                      {projectDetailTab === 'logs' && (
+                      {(projectDetailTab === 'logs' || projectDetailTab === 'services') && (
                         <HeroTerminalServer className="w-44 h-24 hidden lg:block" />
                       )}
                       {projectDetailTab === 'history' && (
@@ -842,6 +849,23 @@ export const App: React.FC = () => {
                     </button>
 
                     <button
+                      onClick={() => setProjectDetailTab('services')}
+                      className={`px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                        projectDetailTab === 'services'
+                          ? 'bg-[#FACC15] text-black border-2 border-black shadow-[2px_2px_0px_#000000]'
+                          : 'text-black hover:bg-black/5'
+                      }`}
+                    >
+                      <Boxes className="w-4 h-4" />
+                      <span>Live Container Logs</span>
+                      {projectServicesCount > 0 && (
+                        <span className="px-1.5 py-0.2 rounded-full bg-black text-white text-[10px] font-black">
+                          {projectServicesCount}
+                        </span>
+                      )}
+                    </button>
+
+                    <button
                       onClick={() => setProjectDetailTab('history')}
                       className={`px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
                         projectDetailTab === 'history'
@@ -908,6 +932,18 @@ export const App: React.FC = () => {
                         </div>
                       )}
                     </div>
+                  )}
+
+                  {/* Tab: Live Container Logs for Multi-Service / Docker Compose */}
+                  {projectDetailTab === 'services' && (
+                    <LiveServicesLogViewer
+                      projectId={selectedProject.id}
+                      projectName={selectedProject.name}
+                      projectPath={selectedProject.project_path}
+                      currentUser={currentUser}
+                      ws={wsRef.current}
+                      onServicesCountChange={(count) => setProjectServicesCount(count)}
+                    />
                   )}
 
                   {/* Tab 3: History Table (Image 2) */}
@@ -1122,6 +1158,13 @@ export const App: React.FC = () => {
             if (editingProject) {
               setSelectedProjectId(editingProject.id);
               setProjectDetailTab('env');
+            }
+            setEditingProject(null);
+          }}
+          onNavigateServices={() => {
+            if (editingProject) {
+              setSelectedProjectId(editingProject.id);
+              setProjectDetailTab('services');
             }
             setEditingProject(null);
           }}

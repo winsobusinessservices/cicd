@@ -105,11 +105,27 @@ export function initDatabase(): void {
     );
   `);
 
+  // 6. Project Services table (Multi-container / Docker Compose Live Logs)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS project_services (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      log_command TEXT NOT NULL,
+      working_dir TEXT DEFAULT '',
+      color TEXT DEFAULT 'blue',
+      display_order INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+
   // Index creation for fast queries
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_pipeline_project_order ON pipeline_steps(project_id, step_order);
     CREATE INDEX IF NOT EXISTS idx_deployments_project ON deployments(project_id, started_at DESC);
     CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_logs(timestamp DESC);
+    CREATE INDEX IF NOT EXISTS idx_services_project ON project_services(project_id, display_order);
   `);
 
   // Seed default Main Admin if table is empty

@@ -20,7 +20,8 @@ import {
   Sliders,
   ChevronRight,
   Edit2,
-  Info
+  Info,
+  Boxes
 } from 'lucide-react';
 import { Project, PipelineStep } from '../api';
 import {
@@ -42,6 +43,7 @@ interface ProjectModalProps {
     sudoPassword?: string;
   }) => Promise<void>;
   onNavigateEnv?: () => void;
+  onNavigateServices?: () => void;
   onDeleteProject?: (id: number) => void;
 }
 
@@ -57,6 +59,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   onClose,
   onSave,
   onNavigateEnv,
+  onNavigateServices,
   onDeleteProject,
 }) => {
   const [activeTab, setActiveTab] = useState<'general' | 'build' | 'domains' | 'access' | 'notifications' | 'danger'>('general');
@@ -639,6 +642,33 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
 
                   <div className="flex justify-end pt-2">
                     <LaptopShieldIllustration className="w-24 h-16" />
+                  </div>
+                </div>
+
+                {/* Card 5: Container Services (Docker Compose) */}
+                <div className="neo-box p-5 bg-white flex flex-col justify-between md:col-span-2">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Boxes className="w-4 h-4 text-black" />
+                        <h4 className="text-xs font-black text-black">Live Container &amp; Docker Compose Terminals</h4>
+                      </div>
+                      <p className="text-[11px] text-zinc-500 font-medium">
+                        Configure multiple live terminals to stream individual container logs (frontend, backend, database).
+                      </p>
+                    </div>
+
+                    {onNavigateServices && (
+                      <button
+                        type="button"
+                        onClick={onNavigateServices}
+                        className="px-3 py-1.5 rounded-xl bg-[#FACC15] hover:bg-yellow-400 text-black border-2 border-black font-black text-xs flex items-center gap-1.5 cursor-pointer shadow-[2px_2px_0px_#000]"
+                      >
+                        <Boxes className="w-3.5 h-3.5" />
+                        <span>Open Live Container Logs</span>
+                        <span>&rarr;</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

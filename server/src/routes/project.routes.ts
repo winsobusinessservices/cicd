@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import path from 'path';
 import { ProjectService } from '../services/project.service.js';
+import { ServiceLogService } from '../services/service-log.service.js';
 import { AuditService } from '../services/audit.service.js';
 import { AuthService } from '../services/auth.service.js';
 import { requireAuth, AuthenticatedRequest } from '../middleware/auth.middleware.js';
@@ -340,4 +341,127 @@ projectRouter.post('/:id/env/sync', requireMainAdmin, (req: AuthenticatedRequest
   } catch (err: any) {
     res.status(500).json({ error: `Failed to sync environment variables from disk: ${err.message}` });
   }
+});
+
+// 9. List services for a project (Main Admin & Sub Admin)
+projectRouter.get('/:id/services', (req: AuthenticatedRequest, res: Response): void => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: 'Invalid project ID.' });
+    return;
+  }
+  const services = ServiceLogService.getServicesByProjectId(id);
+  const enriched = services.map((s) => {
+    const state = ServiceLogService.getStreamState(s.id);
+    return {
+      ...s,
+      status: state.status,
+      startedAt: state.startedAt,
+    };
+  });
+  res.json(enriched);
+});
+
+// 10. Save / replace services for a project (MAIN ADMIN ONLY)
+projectRouter.put('/:id/services', requireMainAdmin, (req: AuthenticatedRequest, res: Response): void => {
+  const id = parseInt(req.params.id, 10);
+  const services = req.body.services;
+  const ip = getClientIp(req);
+
+  if (isNaN(id) || !Array.isArray(services)) {
+    res.status(400).json({ error: 'Services must be an array of service definitions.' });
+    return;
+  }
+
+  const project = ProjectService.getProjectById(id);
+  if (!project) {
+    res.status(404).json({ error: 'Project not found.' });
+    return;
+  }
+
+  for (let i = 0; i < services.length; i++) {
+    const s = services[i];
+    if (!s.name || typeof s.name !== 'string' || s.name.trim() === '') {
+      res.status(400).json({ error: `Service #${i + 1} is missing a name.` });
+      return;
+    }
+    if (!s.log_command || typeof s.log_command !== 'string' || s.log_command.trim() === '') {
+      res.status(400).json({ error: `Service "${s.name}" is missing a log command.` });
+      return;
+    }
+  }
+
+  try {
+    const saved = ServiceLogService.saveServices(id, services);
+
+    AuditService.log({
+      userId: req.user!.id,
+      username: req.user!.username,
+      userRole: req.user!.role,
+      ipAddress: ip,
+      action: 'PROJECT_SERVICES_UPDATED',
+      target: `Project: "${project.name}" (#${id})`,
+      details: `Saved ${saved.length} service terminals for live log streaming.`,
+    });
+
+    res.json({ message: 'Services saved successfully.', services: saved });
+  } catch (err: any) {
+    res.status(500).json({ error: `Failed to save services: ${err.message}` });
+  }
+});
+
+// 11. Start live log streaming for a service
+projectRouter.post('/:id/services/:serviceId/start', (req: AuthenticatedRequest, res: Response): void => {
+  const serviceId = parseInt(req.params.serviceId, 10);
+  if (isNaN(serviceId)) {
+    res.status(400).json({ error: 'Invalid service ID.' });
+    return;
+  }
+  try {
+    const stream = ServiceLogService.startStream(serviceId);
+    res.json(stream);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 12. Stop live log streaming for a service
+projectRouter.post('/:id/services/:serviceId/stop', (req: AuthenticatedRequest, res: Response): void => {
+  const serviceId = parseInt(req.params.serviceId, 10);
+  if (isNaN(serviceId)) {
+    res.status(400).json({ error: 'Invalid service ID.' });
+    return;
+  }
+  try {
+    ServiceLogService.stopStream(serviceId);
+    res.json({ status: 'STOPPED', message: 'Stream stopped.' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 13. Get buffered logs and stream status for a service
+projectRouter.get('/:id/services/:serviceId/logs', (req: AuthenticatedRequest, res: Response): void => {
+  const serviceId = parseInt(req.params.serviceId, 10);
+  if (isNaN(serviceId)) {
+    res.status(400).json({ error: 'Invalid service ID.' });
+    return;
+  }
+  try {
+    const state = ServiceLogService.getStreamState(serviceId);
+    res.json(state);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 14. Clear buffered logs for a service
+projectRouter.post('/:id/services/:serviceId/clear', (req: AuthenticatedRequest, res: Response): void => {
+  const serviceId = parseInt(req.params.serviceId, 10);
+  if (isNaN(serviceId)) {
+    res.status(400).json({ error: 'Invalid service ID.' });
+    return;
+  }
+  ServiceLogService.clearBuffer(serviceId);
+  res.json({ message: 'Buffer cleared.' });
 });

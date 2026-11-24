@@ -128,4 +128,26 @@ export class WsManager {
       ...extra,
     });
   }
+
+  public static broadcastServiceLog(serviceId: number, data: {
+    stream: 'stdout' | 'stderr' | 'system';
+    text: string;
+  }) {
+    this.broadcastToChannel(`service_log:${serviceId}`, {
+      type: 'LOG_CHUNK',
+      serviceId,
+      timestamp: new Date().toISOString(),
+      ...data,
+    });
+  }
+
+  public static broadcastServiceStatus(serviceId: number, status: string, extra: Record<string, any> = {}) {
+    this.broadcastToChannel(`service_log:${serviceId}`, {
+      type: 'STREAM_STATUS',
+      serviceId,
+      status,
+      timestamp: new Date().toISOString(),
+      ...extra,
+    });
+  }
 }
