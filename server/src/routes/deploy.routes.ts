@@ -81,3 +81,42 @@ deployRouter.get('/project/:projectId/history', (req: AuthenticatedRequest, res:
   const history = RunnerService.getDeploymentsByProjectId(projectId, limit);
   res.json(history);
 });
+
+// 5. One-Click Rollback to a previous deployment run
+deployRouter.post('/rollback/:deploymentId', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const targetDepId = parseInt(req.params.deploymentId, 10);
+  const ip = getClientIp(req);
+
+  const targetDeployment = RunnerService.getDeploymentById(targetDepId);
+  if (!targetDeployment) {
+    res.status(404).json({ error: 'Target deployment for rollback not found.' });
+    return;
+  }
+
+  const project = ProjectService.getProjectById(targetDeployment.project_id);
+  if (!project) {
+    res.status(404).json({ error: 'Project not found.' });
+    return;
+  }
+
+  try {
+    const deployment = await RunnerService.startDeployment({
+      projectId: targetDeployment.project_id,
+      userId: req.user!.id,
+      username: req.user!.username,
+      userRole: req.user!.role,
+      ipAddress: ip,
+      triggerType: 'ROLLBACK',
+      rollbackFromId: targetDepId,
+      commitHash: targetDeployment.commit_hash || '',
+      commitMessage: `Rollback to Run #${targetDepId} (${targetDeployment.commit_message || 'previous stable build'})`,
+    });
+
+    res.status(202).json({
+      message: `Rollback deployment started for "${project.name}" (reverting to #${targetDepId}).`,
+      deployment,
+    });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});

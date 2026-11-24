@@ -13,6 +13,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { User, api } from '../api';
+import { SystemResourceWidget } from './SystemResourceWidget';
 
 interface NavbarProps {
   user: User;
@@ -143,6 +144,11 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             )}
           </nav>
+
+          {/* System Resource Metrics Widget */}
+          <div className="hidden lg:flex items-center ml-auto mr-1">
+            <SystemResourceWidget currentUser={user} />
+          </div>
 
           <div className="h-6 w-[1px] bg-zinc-800 hidden md:block" />
 

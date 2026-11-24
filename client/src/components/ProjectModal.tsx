@@ -21,9 +21,13 @@ import {
   ChevronRight,
   Edit2,
   Info,
-  Boxes
+  Boxes,
+  Copy,
+  RotateCcw,
+  Key,
+  Clock
 } from 'lucide-react';
-import { Project, PipelineStep } from '../api';
+import { Project, PipelineStep, WebhookEvent, api } from '../api';
 import {
   GearLaptopIllustration,
   LaptopShieldIllustration,
@@ -40,6 +44,11 @@ interface ProjectModalProps {
     project_path: string;
     env_vars: Record<string, string>;
     steps: PipelineStep[];
+    webhook_secret?: string;
+    webhook_branch?: string;
+    webhook_enabled?: boolean;
+    schedule_cron?: string;
+    schedule_enabled?: boolean;
     sudoPassword?: string;
   }) => Promise<void>;
   onNavigateEnv?: () => void;
@@ -62,7 +71,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   onNavigateServices,
   onDeleteProject,
 }) => {
-  const [activeTab, setActiveTab] = useState<'general' | 'build' | 'domains' | 'access' | 'notifications' | 'danger'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'build' | 'webhooks' | 'domains' | 'access' | 'notifications' | 'danger'>('general');
   const [name, setName] = useState(project.name || '');
   const [description, setDescription] = useState(project.description || '');
   const [projectPath, setProjectPath] = useState(project.project_path || '');
@@ -71,6 +80,17 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   const [branch, setBranch] = useState('main');
   const [autoDeploy, setAutoDeploy] = useState(true);
   const [isEditingInfo, setIsEditingInfo] = useState(false);
+
+  // Webhooks & Automation State
+  const [webhookEnabled, setWebhookEnabled] = useState(Boolean(project.webhook_enabled));
+  const [webhookBranch, setWebhookBranch] = useState(project.webhook_branch || 'main');
+  const [webhookSecret, setWebhookSecret] = useState(project.webhook_secret || '');
+  const [scheduleEnabled, setScheduleEnabled] = useState(Boolean(project.schedule_enabled));
+  const [scheduleCron, setScheduleCron] = useState(project.schedule_cron || '');
+  const [webhookEvents, setWebhookEvents] = useState<WebhookEvent[]>([]);
+  const [copiedWebhookUrl, setCopiedWebhookUrl] = useState(false);
+  const [copiedWebhookSecret, setCopiedWebhookSecret] = useState(false);
+  const [generatingSecret, setGeneratingSecret] = useState(false);
 
   // Dual-mode pipeline script vs steps
   const [commandMode, setCommandMode] = useState<'script' | 'steps'>('script');
@@ -100,8 +120,19 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
         setSteps(project.steps);
         setScriptText(project.steps.map((s) => s.command).join('\n'));
       }
+      setWebhookEnabled(Boolean(project.webhook_enabled));
+      setWebhookBranch(project.webhook_branch || 'main');
+      setWebhookSecret(project.webhook_secret || '');
+      setScheduleEnabled(Boolean(project.schedule_enabled));
+      setScheduleCron(project.schedule_cron || '');
     }
   }, [project]);
+
+  useEffect(() => {
+    if (activeTab === 'webhooks' && project?.id) {
+      api.getWebhookHistory(project.id).then(setWebhookEvents).catch(() => {});
+    }
+  }, [activeTab, project?.id]);
 
   // Sync mode toggling
   const handleSwitchToSteps = () => {
@@ -205,6 +236,11 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
         project_path: projectPath,
         env_vars: project.env_vars || {},
         steps: finalSteps.length > 0 ? finalSteps : project.steps || [],
+        webhook_secret: webhookSecret,
+        webhook_branch: webhookBranch,
+        webhook_enabled: webhookEnabled,
+        schedule_cron: scheduleCron,
+        schedule_enabled: scheduleEnabled,
       });
       setSavedSuccess(true);
       setTimeout(() => {
@@ -282,6 +318,18 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
           >
             <Layers className="w-3.5 h-3.5" />
             <span>Build &amp; Deploy</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('webhooks')}
+            className={`px-3.5 sm:px-4 py-1.5 rounded-xl font-extrabold text-xs border-2 border-black flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === 'webhooks'
+                ? 'bg-[#FACC15] text-black shadow-[2px_2px_0px_#000000]'
+                : 'bg-white text-zinc-700 hover:bg-zinc-50'
+            }`}
+          >
+            <Zap className="w-3.5 h-3.5" />
+            <span>Webhooks &amp; Cron</span>
           </button>
 
           <button
@@ -364,6 +412,21 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                 <Rocket className="w-4 h-4" />
                 <span>Build &amp; Deploy</span>
               </div>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('webhooks')}
+              className={`w-full p-2.5 rounded-xl border-2 border-black font-extrabold text-xs flex items-center justify-between transition-all cursor-pointer ${
+                activeTab === 'webhooks'
+                  ? 'bg-[#FACC15] text-black shadow-[2px_2px_0px_#000000]'
+                  : 'bg-white text-zinc-700 hover:bg-zinc-50'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4" />
+                <span>Webhooks &amp; Cron</span>
+              </div>
+              <ChevronRight className="w-4 h-4" />
             </button>
 
             <button
@@ -788,6 +851,287 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                       >
                         <Plus className="w-3.5 h-3.5" /> Add Step
                       </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* VIEW: WEBHOOKS & CRON */}
+            {activeTab === 'webhooks' && (
+              <div className="space-y-5">
+                {/* 1. GitHub Webhook Card */}
+                <div className="neo-box p-5 bg-white space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b-2 border-black/10">
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-5 h-5 text-black" />
+                      <div>
+                        <h4 className="text-sm font-black text-black">GitHub Webhook Auto-Deploy</h4>
+                        <p className="text-xs text-zinc-600">
+                          Automatically trigger a pipeline build every time code is pushed to GitHub.
+                        </p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer select-none shrink-0">
+                      <input
+                        type="checkbox"
+                        checked={webhookEnabled}
+                        onChange={(e) => setWebhookEnabled(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-zinc-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-black after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-2 after:border-black after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#22C55E] border-2 border-black" />
+                      <span className="ml-2 text-xs font-black text-black uppercase">
+                        {webhookEnabled ? 'Active' : 'Disabled'}
+                      </span>
+                    </label>
+                  </div>
+
+                  {webhookEnabled && (
+                    <div className="space-y-4 pt-1">
+                      {/* Webhook URL Box */}
+                      <div className="space-y-1">
+                        <label className="text-xs font-black text-black flex items-center justify-between">
+                          <span>Payload URL (GitHub Webhook Endpoint)</span>
+                          <span className="text-[11px] text-zinc-500 font-normal">Send POST requests here</span>
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            readOnly
+                            value={`${window.location.origin}/api/webhooks/github/${project.slug || project.id}`}
+                            className="neo-input font-mono text-xs py-2 bg-zinc-50 text-zinc-800 select-all cursor-text"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(`${window.location.origin}/api/webhooks/github/${project.slug || project.id}`);
+                              setCopiedWebhookUrl(true);
+                              setTimeout(() => setCopiedWebhookUrl(false), 2000);
+                            }}
+                            className="neo-btn-white px-3 py-2 text-xs font-bold shrink-0 flex items-center gap-1.5 cursor-pointer shadow-[2px_2px_0px_#000]"
+                          >
+                            {copiedWebhookUrl ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                            <span>{copiedWebhookUrl ? 'Copied' : 'Copy'}</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Branch & Secret Grid */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-xs font-black text-black">
+                            Target Branch
+                          </label>
+                          <input
+                            type="text"
+                            value={webhookBranch}
+                            onChange={(e) => setWebhookBranch(e.target.value)}
+                            placeholder="main"
+                            className="neo-input font-mono text-xs py-2"
+                          />
+                          <p className="text-[10px] text-zinc-500 font-medium">
+                            Pushes to other branches will be ignored safely.
+                          </p>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-xs font-black text-black flex items-center justify-between">
+                            <span>Secret Token (HMAC SHA-256)</span>
+                            <span className="text-[10px] text-emerald-700 font-bold">Secured</span>
+                          </label>
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="text"
+                              value={webhookSecret}
+                              onChange={(e) => setWebhookSecret(e.target.value)}
+                              placeholder="Paste or generate secret"
+                              className="neo-input font-mono text-xs py-2 flex-1"
+                            />
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  setGeneratingSecret(true);
+                                  const res = await api.generateWebhookSecret();
+                                  setWebhookSecret(res.secret);
+                                } catch (e: any) {
+                                  alert(`Failed to generate secret: ${e.message}`);
+                                } finally {
+                                  setGeneratingSecret(false);
+                                }
+                              }}
+                              disabled={generatingSecret}
+                              title="Generate secure random secret"
+                              className="neo-btn-yellow p-2 text-xs shrink-0 cursor-pointer shadow-[1.5px_1.5px_0px_#000]"
+                            >
+                              <RotateCcw className={`w-4 h-4 ${generatingSecret ? 'animate-spin' : ''}`} />
+                            </button>
+                            {webhookSecret && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(webhookSecret);
+                                  setCopiedWebhookSecret(true);
+                                  setTimeout(() => setCopiedWebhookSecret(false), 2000);
+                                }}
+                                title="Copy secret"
+                                className="neo-btn-white p-2 text-xs shrink-0 cursor-pointer shadow-[1.5px_1.5px_0px_#000]"
+                              >
+                                {copiedWebhookSecret ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                              </button>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-zinc-500 font-medium">
+                            Paste this secret into GitHub webhook configuration.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Instructions Walkthrough Card */}
+                      <div className="p-4 rounded-xl bg-[#FAF7EE] border-2 border-black space-y-2 text-xs">
+                        <div className="font-black text-black flex items-center gap-1.5">
+                          <span>📋</span> <span>GitHub Configuration Checklist:</span>
+                        </div>
+                        <ol className="list-decimal list-inside space-y-1 text-zinc-700 font-medium leading-relaxed">
+                          <li>Navigate to your GitHub repo &rarr; <strong>Settings</strong> &rarr; <strong>Webhooks</strong> &rarr; <strong>Add webhook</strong></li>
+                          <li>Paste the <strong>Payload URL</strong> above</li>
+                          <li>Select <strong>Content type</strong> as <code className="bg-white px-1.5 py-0.5 rounded border border-black font-mono font-bold text-[11px]">application/json</code></li>
+                          <li>Paste the <strong>Secret</strong> key above for cryptographic payload verification</li>
+                          <li>Select <strong>&quot;Just the push event&quot;</strong> and click <strong>Add webhook</strong></li>
+                        </ol>
+                      </div>
+
+                      {/* Webhook Delivery History */}
+                      <div className="space-y-2 pt-2">
+                        <div className="flex items-center justify-between">
+                          <h5 className="text-xs font-black text-black uppercase tracking-wider">Recent Webhook Deliveries</h5>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (project?.id) {
+                                api.getWebhookHistory(project.id).then(setWebhookEvents).catch(() => {});
+                              }
+                            }}
+                            className="text-[11px] font-bold text-zinc-600 hover:text-black underline cursor-pointer"
+                          >
+                            Refresh
+                          </button>
+                        </div>
+
+                        {webhookEvents.length === 0 ? (
+                          <div className="p-3 rounded-xl bg-zinc-50 border border-zinc-300 text-center text-xs text-zinc-500 font-medium">
+                            No webhook deliveries recorded yet. Push commits to GitHub to test auto-deploy!
+                          </div>
+                        ) : (
+                          <div className="max-h-48 overflow-y-auto rounded-xl border-2 border-black divide-y divide-black/10 bg-white">
+                            {webhookEvents.slice(0, 8).map((evt) => (
+                              <div key={evt.id} className="p-2.5 flex items-center justify-between gap-3 text-xs">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-[10px] font-mono font-extrabold uppercase border border-black ${
+                                      evt.status === 'SUCCESS'
+                                        ? 'bg-[#DCFCE7] text-emerald-800'
+                                        : evt.status === 'IGNORED'
+                                        ? 'bg-zinc-100 text-zinc-700'
+                                        : 'bg-[#FEE2E2] text-rose-800'
+                                    }`}
+                                  >
+                                    {evt.status}
+                                  </span>
+                                  <span className="font-mono text-zinc-500 text-[11px]">
+                                    {evt.branch || 'main'}
+                                  </span>
+                                  {evt.commit_hash && (
+                                    <span className="font-mono text-black font-bold text-[11px]">
+                                      {evt.commit_hash.slice(0, 7)}
+                                    </span>
+                                  )}
+                                  <span className="truncate text-zinc-700 font-medium">
+                                    {evt.commit_message || evt.event_type}
+                                  </span>
+                                </div>
+                                <span className="text-[10px] text-zinc-500 font-mono shrink-0">
+                                  {new Date(evt.received_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Scheduled Deployments (Cron) Card */}
+                <div className="neo-box p-5 bg-white space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b-2 border-black/10">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-5 h-5 text-black" />
+                      <div>
+                        <h4 className="text-sm font-black text-black">Scheduled Deployments (Cron)</h4>
+                        <p className="text-xs text-zinc-600">
+                          Automatically run deployment pipelines on a recurring timetable (nightly builds, periodic syncs).
+                        </p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer select-none shrink-0">
+                      <input
+                        type="checkbox"
+                        checked={scheduleEnabled}
+                        onChange={(e) => setScheduleEnabled(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-zinc-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-black after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-2 after:border-black after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#22C55E] border-2 border-black" />
+                      <span className="ml-2 text-xs font-black text-black uppercase">
+                        {scheduleEnabled ? 'Active' : 'Disabled'}
+                      </span>
+                    </label>
+                  </div>
+
+                  {scheduleEnabled && (
+                    <div className="space-y-4 pt-1">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-black text-black">
+                          Cron Expression or Alias
+                        </label>
+                        <input
+                          type="text"
+                          value={scheduleCron}
+                          onChange={(e) => setScheduleCron(e.target.value)}
+                          placeholder="e.g. 0 0 * * * or @daily"
+                          className="neo-input font-mono text-xs py-2"
+                        />
+                        <p className="text-[10px] text-zinc-500 font-medium">
+                          Standard 5-part cron syntax: <code className="font-mono text-black font-bold">minute hour day month weekday</code>
+                        </p>
+                      </div>
+
+                      {/* Quick Presets */}
+                      <div className="space-y-1.5">
+                        <span className="text-[11px] font-extrabold text-black">Quick Presets:</span>
+                        <div className="flex flex-wrap gap-2">
+                          {[
+                            { label: 'Nightly (@daily)', cron: '@daily' },
+                            { label: 'Weekly (@weekly)', cron: '@weekly' },
+                            { label: 'Hourly (@hourly)', cron: '@hourly' },
+                            { label: 'Every 12h (0 */12 * * *)', cron: '0 */12 * * *' },
+                            { label: 'At 2:00 AM (0 2 * * *)', cron: '0 2 * * *' },
+                          ].map((preset) => (
+                            <button
+                              key={preset.cron}
+                              type="button"
+                              onClick={() => setScheduleCron(preset.cron)}
+                              className="px-2.5 py-1 rounded-lg bg-zinc-100 hover:bg-[#FEF08A] text-black border border-black font-mono text-xs font-bold shadow-[1.5px_1.5px_0px_#000] cursor-pointer transition-colors"
+                            >
+                              {preset.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="p-3.5 rounded-xl bg-[#EFF6FF] border-2 border-black text-xs font-medium text-blue-950">
+                        ⏱ <strong>Scheduler Engine:</strong> The Varex internal cron daemon checks every 30 seconds for scheduled matches and spawns automated runs with trigger type <code>SCHEDULE</code>.
+                      </div>
                     </div>
                   )}
                 </div>

@@ -26,6 +26,7 @@ export interface ProjectServiceItem {
   id?: number;
   project_id?: number;
   name: string;
+  container_name?: string;
   log_command: string;
   working_dir?: string;
   color?: string;
@@ -53,6 +54,11 @@ export interface Project {
   last_deploy_at?: string | null;
   steps?: PipelineStep[];
   services?: ProjectServiceItem[];
+  webhook_secret?: string;
+  webhook_branch?: string;
+  webhook_enabled?: boolean;
+  schedule_cron?: string;
+  schedule_enabled?: boolean;
 }
 
 export interface Deployment {
@@ -68,6 +74,49 @@ export interface Deployment {
   exit_code: number | null;
   logs: string;
   error_message: string | null;
+  trigger_type?: 'MANUAL' | 'WEBHOOK' | 'ROLLBACK' | 'SCHEDULE';
+  commit_hash?: string;
+  commit_message?: string;
+  rollback_from_id?: number | null;
+}
+
+export interface WebhookEvent {
+  id: number;
+  project_id: number;
+  event_type: string;
+  sender_username: string;
+  commit_hash: string;
+  commit_message: string;
+  branch: string;
+  status: string;
+  received_at: string;
+}
+
+export interface SystemStats {
+  cpu: {
+    cores: number;
+    model: string;
+    loadAvg: number[];
+  };
+  memory: {
+    totalBytes: number;
+    freeBytes: number;
+    usedBytes: number;
+    usedPercent: number;
+  };
+  disk: {
+    totalBytes: number;
+    freeBytes: number;
+    usedBytes: number;
+    usedPercent: number;
+  };
+  uptimeSeconds: number;
+  platform: string;
+  nodeVersion: string;
+  docker: {
+    available: boolean;
+    summary?: string;
+  };
 }
 
 export interface AuditLog {
@@ -236,9 +285,33 @@ export const api = {
       method: 'POST',
     }),
 
-  // Deployments
+  // Container Lifecycle Quick Actions & Exec
+  executeContainerAction: (projectId: number, serviceId: number, action: 'restart' | 'stop' | 'start') =>
+    request<{ success: boolean; message: string; command: string; stdout: string; stderr: string; durationMs: number }>(
+      `/projects/${projectId}/services/${serviceId}/action`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ action }),
+      }
+    ),
+
+  executeContainerCommand: (projectId: number, serviceId: number, command: string, inContainer = false) =>
+    request<{ exitCode: number; stdout: string; stderr: string; durationMs: number; fullCommand: string }>(
+      `/projects/${projectId}/services/${serviceId}/exec`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ command, inContainer }),
+      }
+    ),
+
+  // Deployments & Rollback
   triggerDeploy: (projectId: number) =>
     request<{ message: string; deployment: Deployment }>(`/deploy/project/${projectId}`, {
+      method: 'POST',
+    }),
+
+  triggerRollback: (deploymentId: number) =>
+    request<{ message: string; deployment: Deployment }>(`/deploy/rollback/${deploymentId}`, {
       method: 'POST',
     }),
 
@@ -252,6 +325,24 @@ export const api = {
 
   getDeployHistory: (projectId: number, limit = 25) =>
     request<Deployment[]>(`/deploy/project/${projectId}/history?limit=${limit}`),
+
+  // Webhooks
+  getWebhookHistory: (projectId: number) =>
+    request<WebhookEvent[]>(`/webhooks/history/${projectId}`),
+
+  generateWebhookSecret: () =>
+    request<{ secret: string }>('/webhooks/generate-secret', {
+      method: 'POST',
+    }),
+
+  // System Resource Monitor & Docker Prune
+  getSystemStats: () =>
+    request<SystemStats>('/system/stats'),
+
+  pruneDockerSystem: () =>
+    request<{ message: string; output: string }>('/system/docker/prune', {
+      method: 'POST',
+    }),
 
   // User Management (Main Admin only)
   getPendingUsers: () => request<User[]>('/users/pending'),

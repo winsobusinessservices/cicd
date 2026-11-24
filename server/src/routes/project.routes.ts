@@ -97,7 +97,11 @@ projectRouter.post('/', requireMainAdmin, (req: AuthenticatedRequest, res: Respo
 // 4. Update project details (MAIN ADMIN ONLY)
 projectRouter.put('/:id', requireMainAdmin, (req: AuthenticatedRequest, res: Response): void => {
   const id = parseInt(req.params.id, 10);
-  const { name, description, project_path, env_vars } = req.body;
+  const {
+    name, description, project_path, env_vars,
+    webhook_secret, webhook_branch, webhook_enabled,
+    schedule_cron, schedule_enabled
+  } = req.body;
   const ip = getClientIp(req);
 
   const cleanName = typeof name === 'string' ? name.trim() : '';
@@ -148,6 +152,11 @@ projectRouter.put('/:id', requireMainAdmin, (req: AuthenticatedRequest, res: Res
       description: typeof description === 'string' ? description.trim() : '',
       project_path: resolvedPath,
       env_vars,
+      webhook_secret,
+      webhook_branch,
+      webhook_enabled,
+      schedule_cron,
+      schedule_enabled,
     });
 
     if (!updated) {
@@ -464,4 +473,69 @@ projectRouter.post('/:id/services/:serviceId/clear', (req: AuthenticatedRequest,
   }
   ServiceLogService.clearBuffer(serviceId);
   res.json({ message: 'Buffer cleared.' });
+});
+
+// 15. Container Quick Action (restart | stop | start) (Main Admin Only)
+projectRouter.post('/:id/services/:serviceId/action', requireMainAdmin, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const serviceId = parseInt(req.params.serviceId, 10);
+  const action = req.body.action as 'restart' | 'stop' | 'start';
+  const ip = getClientIp(req);
+
+  if (!['restart', 'stop', 'start'].includes(action)) {
+    res.status(400).json({ error: 'Action must be "restart", "stop", or "start".' });
+    return;
+  }
+
+  try {
+    const result = await ServiceLogService.executeAction(serviceId, action);
+    const service = ServiceLogService.getServiceById(serviceId);
+
+    AuditService.log({
+      userId: req.user!.id,
+      username: req.user!.username,
+      userRole: req.user!.role,
+      ipAddress: ip,
+      action: 'CONTAINER_ACTION_EXECUTED',
+      target: `Service: "${service?.name || serviceId}"`,
+      details: `Executed container action "${action}" (${result.command}) in ${result.durationMs}ms.`,
+    });
+
+    res.json({
+      message: `Container action "${action}" completed successfully.`,
+      ...result,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 16. Run command inside container or service directory (Main Admin Only)
+projectRouter.post('/:id/services/:serviceId/exec', requireMainAdmin, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const serviceId = parseInt(req.params.serviceId, 10);
+  const { command, inContainer } = req.body;
+  const ip = getClientIp(req);
+
+  if (!command || typeof command !== 'string' || !command.trim()) {
+    res.status(400).json({ error: 'Command string is required.' });
+    return;
+  }
+
+  try {
+    const result = await ServiceLogService.executeCommand(serviceId, command, inContainer === true);
+    const service = ServiceLogService.getServiceById(serviceId);
+
+    AuditService.log({
+      userId: req.user!.id,
+      username: req.user!.username,
+      userRole: req.user!.role,
+      ipAddress: ip,
+      action: 'CONTAINER_COMMAND_EXECUTED',
+      target: `Service: "${service?.name || serviceId}"`,
+      details: `Executed command "${command}" (inContainer: ${inContainer === true}) - exit code: ${result.exitCode}.`,
+    });
+
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });

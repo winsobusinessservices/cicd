@@ -19,6 +19,10 @@ export interface DeploymentRow {
   exit_code: number | null;
   logs: string;
   error_message: string | null;
+  trigger_type?: string;
+  commit_hash?: string;
+  commit_message?: string;
+  rollback_from_id?: number | null;
 }
 
 export class RunnerService {
@@ -30,6 +34,10 @@ export class RunnerService {
     username: string;
     userRole: string;
     ipAddress: string;
+    triggerType?: 'MANUAL' | 'WEBHOOK' | 'ROLLBACK' | 'SCHEDULE';
+    commitHash?: string;
+    commitMessage?: string;
+    rollbackFromId?: number;
   }): Promise<DeploymentRow> {
     const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(options.projectId) as unknown as ProjectRow | undefined;
     if (!project) {
@@ -45,17 +53,28 @@ export class RunnerService {
     }
 
     const now = new Date().toISOString();
+    const triggerType = options.triggerType || 'MANUAL';
+    const commitHash = options.commitHash || '';
+    const commitMessage = options.commitMessage || '';
+    const rollbackFromId = options.rollbackFromId || null;
 
     // Create deployment record
     const result = db.prepare(`
-      INSERT INTO deployments (project_id, project_name, triggered_by_user_id, triggered_by_username, status, started_at, logs)
-      VALUES (?, ?, ?, ?, 'RUNNING', ?, '')
+      INSERT INTO deployments (
+        project_id, project_name, triggered_by_user_id, triggered_by_username,
+        status, started_at, logs, trigger_type, commit_hash, commit_message, rollback_from_id
+      )
+      VALUES (?, ?, ?, ?, 'RUNNING', ?, '', ?, ?, ?, ?)
     `).run(
       project.id,
       project.name,
       options.userId,
       options.username,
-      now
+      now,
+      triggerType,
+      commitHash,
+      commitMessage,
+      rollbackFromId
     );
 
     const deploymentId = Number(result.lastInsertRowid);

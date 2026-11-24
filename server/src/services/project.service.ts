@@ -13,6 +13,11 @@ export interface ProjectRow {
   created_by: string;
   created_at: string;
   updated_at: string;
+  webhook_secret?: string;
+  webhook_branch?: string;
+  webhook_enabled?: number;
+  schedule_cron?: string;
+  schedule_enabled?: number;
 }
 
 export interface PipelineStepRow {
@@ -302,6 +307,11 @@ export class ProjectService {
     description?: string;
     project_path?: string;
     env_vars?: Record<string, string>;
+    webhook_secret?: string;
+    webhook_branch?: string;
+    webhook_enabled?: boolean;
+    schedule_cron?: string;
+    schedule_enabled?: boolean;
   }) {
     const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id) as unknown as ProjectRow | undefined;
     if (!project) return null;
@@ -312,11 +322,24 @@ export class ProjectService {
     const resolvedPath = data.project_path ? this.resolveProjectPath(data.project_path) : project.project_path;
     const env_vars = data.env_vars ? JSON.stringify(data.env_vars) : project.env_vars;
 
+    const webhook_secret = data.webhook_secret !== undefined ? data.webhook_secret : (project.webhook_secret || '');
+    const webhook_branch = data.webhook_branch !== undefined ? data.webhook_branch : (project.webhook_branch || 'main');
+    const webhook_enabled = data.webhook_enabled !== undefined ? (data.webhook_enabled ? 1 : 0) : (project.webhook_enabled || 0);
+    const schedule_cron = data.schedule_cron !== undefined ? data.schedule_cron : (project.schedule_cron || '');
+    const schedule_enabled = data.schedule_enabled !== undefined ? (data.schedule_enabled ? 1 : 0) : (project.schedule_enabled || 0);
+
     db.prepare(`
       UPDATE projects
-      SET name = ?, description = ?, project_path = ?, env_vars = ?, updated_at = ?
+      SET name = ?, description = ?, project_path = ?, env_vars = ?,
+          webhook_secret = ?, webhook_branch = ?, webhook_enabled = ?,
+          schedule_cron = ?, schedule_enabled = ?, updated_at = ?
       WHERE id = ?
-    `).run(name, description, resolvedPath, env_vars, now, id);
+    `).run(
+      name, description, resolvedPath, env_vars,
+      webhook_secret, webhook_branch, webhook_enabled,
+      schedule_cron, schedule_enabled, now,
+      id
+    );
 
     // Sync to disk if env_vars was provided
     if (data.env_vars) {

@@ -14,12 +14,18 @@ import { userRouter } from './routes/user.routes.js';
 import { projectRouter } from './routes/project.routes.js';
 import { deployRouter } from './routes/deploy.routes.js';
 import { auditRouter } from './routes/audit.routes.js';
+import { webhookRouter } from './routes/webhook.routes.js';
+import { systemRouter } from './routes/system.routes.js';
+import { ScheduleService } from './services/schedule.service.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // 1. Initialize SQLite Database & initial seeds
 initDatabase();
+
+// Initialize automated scheduled deployment engine
+ScheduleService.init();
 
 // 2. Create Express application
 const app = express();
@@ -64,9 +70,14 @@ app.use(
   })
 );
 
-// Enforce request body limits to protect against DoS
-app.use(express.json({ limit: '1mb' }));
-app.use(express.urlencoded({ extended: false, limit: '1mb' }));
+// Enforce request body limits to protect against DoS (preserve rawBody for HMAC verification)
+app.use(express.json({
+  limit: '2mb',
+  verify: (req: any, _res, buf) => {
+    req.rawBody = buf.toString();
+  },
+}));
+app.use(express.urlencoded({ extended: false, limit: '2mb' }));
 
 // Request logging for audit debugging
 app.use((req, res, next) => {
@@ -89,6 +100,8 @@ app.use('/api/users', userRouter);
 app.use('/api/projects', projectRouter);
 app.use('/api/deploy', deployRouter);
 app.use('/api/audit', auditRouter);
+app.use('/api/webhooks', webhookRouter);
+app.use('/api/system', systemRouter);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -116,7 +129,7 @@ WsManager.init(server);
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`\n============================================================`);
-  console.log(`🚀 Varex CI/CD Platform is running on http://0.0.0.0:${PORT}`);
+  console.log(`🚀 Varex CI/CD Platform is running on http://localhost:${PORT}`);
   console.log(`🔒 Security: Strict Password & Approval Gate Active`);
   console.log(`🛡️ Rate Limiting & Helmet Security Headers: Enabled`);
   console.log(`📝 Audit Logs: Dual-write file and database active`);

@@ -23,7 +23,8 @@ import {
   Folder,
   Calendar,
   ChevronDown,
-  Boxes
+  Boxes,
+  RotateCcw
 } from 'lucide-react';
 import { api, setAuthToken, getAuthToken, User, Project, Deployment, PipelineStep } from './api';
 import { Navbar } from './components/Navbar';
@@ -302,12 +303,19 @@ export const App: React.FC = () => {
     setSelectedProjectId(created.id);
   };
 
+  const [rollingBackId, setRollingBackId] = useState<number | null>(null);
+
   const handleUpdateProject = async (data: {
     name: string;
     description: string;
     project_path: string;
     env_vars: Record<string, string>;
     steps: PipelineStep[];
+    webhook_secret?: string;
+    webhook_branch?: string;
+    webhook_enabled?: boolean;
+    schedule_cron?: string;
+    schedule_enabled?: boolean;
     sudoPassword?: string;
   }) => {
     if (!editingProject) return;
@@ -318,6 +326,26 @@ export const App: React.FC = () => {
     setSelectedProject(updated);
     setEditingProject(null);
     loadProjects();
+  };
+
+  const handleTriggerRollback = async (deploymentId: number) => {
+    if (!confirm(`Are you sure you want to rollback to Deployment #${deploymentId}? This will re-deploy using the verified pipeline steps from that run.`)) {
+      return;
+    }
+    try {
+      setRollingBackId(deploymentId);
+      const res = await api.triggerRollback(deploymentId);
+      setActiveDeployment(res.deployment);
+      setProjectDetailTab('logs');
+      if (selectedProject?.id) {
+        const history = await api.getDeployHistory(selectedProject.id);
+        setDeployHistory(history);
+      }
+    } catch (err: any) {
+      alert(`Rollback failed to initiate: ${err.message}`);
+    } finally {
+      setRollingBackId(null);
+    }
   };
 
   const handleDeleteProject = async (id: number) => {
@@ -1003,9 +1031,27 @@ export const App: React.FC = () => {
                               {filteredDeployHistory.map((d) => (
                                 <tr key={d.id} className="hover:bg-zinc-50 transition-colors">
                                   <td className="py-3 px-3">
-                                    <span className="px-2.5 py-1 rounded-lg bg-[#EDE9FE] text-purple-900 border border-black font-mono font-bold text-xs">
-                                      #{d.id}
-                                    </span>
+                                    <div className="flex flex-col gap-1 items-start">
+                                      <span className="px-2.5 py-0.5 rounded-lg bg-[#EDE9FE] text-purple-900 border border-black font-mono font-bold text-xs">
+                                        #{d.id}
+                                      </span>
+                                      {/* Trigger Type Badge */}
+                                      {d.trigger_type === 'WEBHOOK' && (
+                                        <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-600 font-mono font-extrabold text-[9px] uppercase tracking-tight" title={d.commit_message || 'GitHub Webhook'}>
+                                          🪝 Webhook {d.commit_hash ? `(${d.commit_hash.slice(0, 6)})` : ''}
+                                        </span>
+                                      )}
+                                      {d.trigger_type === 'ROLLBACK' && (
+                                        <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-600 font-mono font-extrabold text-[9px] uppercase tracking-tight" title={`Rolled back from run #${d.rollback_from_id}`}>
+                                          ↺ Rollback {d.rollback_from_id ? `(#${d.rollback_from_id})` : ''}
+                                        </span>
+                                      )}
+                                      {d.trigger_type === 'SCHEDULE' && (
+                                        <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-purple-100 text-purple-800 border border-purple-600 font-mono font-extrabold text-[9px] uppercase tracking-tight">
+                                          ⏰ Cron
+                                        </span>
+                                      )}
+                                    </div>
                                   </td>
 
                                   <td className="py-3 px-3">
@@ -1074,9 +1120,22 @@ export const App: React.FC = () => {
                                     </div>
                                   </td>
 
-                                  {/* Actions: View Terminal + ... (Image 2) */}
+                                  {/* Actions: View Terminal + Rollback + ... (Image 2) */}
                                   <td className="py-3 px-3 text-right">
                                     <div className="flex items-center justify-end gap-1.5">
+                                      {d.status === 'SUCCESS' && (
+                                        <button
+                                          type="button"
+                                          disabled={rollingBackId === d.id}
+                                          onClick={() => handleTriggerRollback(d.id)}
+                                          className="neo-btn-yellow px-2.5 py-1.5 text-xs inline-flex items-center gap-1 cursor-pointer shadow-[1.5px_1.5px_0px_#000000]"
+                                          title="Rollback to this verified deployment"
+                                        >
+                                          <RotateCcw className={`w-3.5 h-3.5 ${rollingBackId === d.id ? 'animate-spin' : ''}`} />
+                                          <span className="hidden sm:inline">Rollback</span>
+                                        </button>
+                                      )}
+
                                       <button
                                         onClick={async () => {
                                           const full = await api.getDeployment(d.id);

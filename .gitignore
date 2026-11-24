@@ -15,6 +15,7 @@ node_modules/
 dist/
 build/
 server/public/
+*.tsbuildinfo
 
 # Environment Variables
 .env

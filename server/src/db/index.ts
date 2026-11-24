@@ -120,13 +120,41 @@ export function initDatabase(): void {
     );
   `);
 
+  // 7. Webhook Events log table (GitHub push triggers)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS webhook_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      event_type TEXT NOT NULL,
+      sender_username TEXT NOT NULL,
+      commit_hash TEXT NOT NULL,
+      commit_message TEXT NOT NULL,
+      branch TEXT NOT NULL,
+      status TEXT NOT NULL,
+      received_at TEXT NOT NULL
+    );
+  `);
+
   // Index creation for fast queries
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_pipeline_project_order ON pipeline_steps(project_id, step_order);
     CREATE INDEX IF NOT EXISTS idx_deployments_project ON deployments(project_id, started_at DESC);
     CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_logs(timestamp DESC);
     CREATE INDEX IF NOT EXISTS idx_services_project ON project_services(project_id, display_order);
+    CREATE INDEX IF NOT EXISTS idx_webhook_project ON webhook_events(project_id, received_at DESC);
   `);
+
+  // Non-destructive Column Migrations
+  try { db.exec(`ALTER TABLE projects ADD COLUMN webhook_secret TEXT DEFAULT '';`); } catch {}
+  try { db.exec(`ALTER TABLE projects ADD COLUMN webhook_branch TEXT DEFAULT 'main';`); } catch {}
+  try { db.exec(`ALTER TABLE projects ADD COLUMN webhook_enabled INTEGER DEFAULT 0;`); } catch {}
+  try { db.exec(`ALTER TABLE projects ADD COLUMN schedule_cron TEXT DEFAULT '';`); } catch {}
+  try { db.exec(`ALTER TABLE projects ADD COLUMN schedule_enabled INTEGER DEFAULT 0;`); } catch {}
+
+  try { db.exec(`ALTER TABLE deployments ADD COLUMN trigger_type TEXT DEFAULT 'MANUAL';`); } catch {}
+  try { db.exec(`ALTER TABLE deployments ADD COLUMN commit_hash TEXT DEFAULT '';`); } catch {}
+  try { db.exec(`ALTER TABLE deployments ADD COLUMN commit_message TEXT DEFAULT '';`); } catch {}
+  try { db.exec(`ALTER TABLE deployments ADD COLUMN rollback_from_id INTEGER;`); } catch {}
 
   // Seed default Main Admin if table is empty
   const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number };

@@ -1,152 +1,295 @@
-# Varex CI/CD Hub
+# ⚡ VAREX CI/CD HUB
 
-A secure, password-protected, self-deploying continuous deployment web platform designed for internal organizational operations. Run it on your production Linux VPS or local server to orchestrate zero-hassle deployments for all your websites and services with live terminal output, custom step pipelines, and immutable audit logs.
+A secure, password-protected, self-deploying continuous integration & continuous deployment (CI/CD) web platform with a bold **Neobrutalist interface**. Built specifically for developers, devops engineers, and teams running Linux VPS instances (Hostinger, AWS, DigitalOcean, Hetzner, etc.) or local servers who want complete control over multi-container Docker Compose stacks, automated deployments, and system resources without complex, bloatware enterprise agents.
 
 ---
 
 ## 🌟 Key Features
 
-1. **Strict Password-Protected Access (Zero Public Endpoints)**
-   - All dashboard views and APIs are protected behind JWT authentication and role-based permissions.
-   - Any unauthenticated request is redirected to `/login`.
+### 1. 🐳 Multi-Container Live Logs (Docker Compose Stacks)
+- **Separate Terminals Per Service:** When running multi-container stacks (e.g. Frontend, Backend API, Database, Worker, Cache), Varex streams each container's live logs in its own dedicated terminal side-by-side or in tabbed views.
+- **Continuous Circular Buffering:** Streams `docker logs -f` without blocking server memory via an in-memory 1,500-line circular ring buffer per service.
+- **Auto-Idle Watchdog:** Automatically monitors active WebSocket viewers; if zero users are watching a terminal for over 5 minutes, Varex terminates the background child process to preserve server CPU and RAM.
+- **Rich Terminal Capabilities:** Full ANSI 256-color rendering, live search/filtering, auto-scroll toggle, 1-click clipboard copy, and `.log` file download.
 
-2. **Main Admin & Sub Admin Hierarchical Approval Workflow**
-   - **User Registration:** Anyone can register with Name, Username, Email, and Password.
-   - **Approval Queue:** Newly registered users are placed into `PENDING_APPROVAL` status and cannot access or log into the platform until approved.
-   - **Main Admin Dashboard:** Main Administrators can inspect pending registration requests, approve them as **Sub Admins** or promote to **Main Admin**, or reject/delete them.
-   - **Direct User Creation:** Main Admins can create and immediately approve team members directly from the UI.
+### 2. 🎮 Container Quick Actions & Remote Command Exec
+- **Lifecycle Controls:** Trigger `Restart`, `Stop`, or `Start` on any Docker container directly from its terminal header with live execution feedback.
+- **Interactive Command Exec:** Run one-off commands (e.g. `npx prisma migrate deploy`, `python manage.py check`, `npm test`, or `ls -la`) either inside the running container (`docker exec -i`) or directly in the project host working directory.
+- **Instant Output Viewer:** Displays execution exit codes, stdout, and stderr with clear Neobrutalist badges.
 
-3. **Custom Pipeline Step Builder**
-   - Configure project working directory on the host server (e.g. `/var/www/my-site` or `D:\projects\my-app`).
-   - Define custom sequential shell commands:
-     - Step 1: `git pull origin main`
-     - Step 2: `npm install && npm run build`
-     - Step 3: `docker compose up -d --build`
-   - Reorder steps, enable/disable individual steps, or set "continue on error".
-   - Preset templates for one-click insertion of common DevOps tasks (Git, Docker, NPM, PM2).
-   - Configurations are auto-persisted in SQLite.
+### 3. 🪝 GitHub Webhook Auto-Deploy (HMAC SHA-256)
+- **Zero-Latency Push Deployment:** Pushing commits to your GitHub repository automatically triggers an automated pipeline build on your server.
+- **Cryptographic Security:** Verifies incoming webhook payloads using GitHub's HMAC SHA-256 signature algorithm (`X-Hub-Signature-256`) against your project's unique secret token.
+- **Branch Filtering:** Automatically filters push events (e.g. only triggers on `main` or `production`), safely ignoring development branches.
+- **Delivery Audit Log:** View recent webhook deliveries directly in the project settings, including commit hashes, messages, sender usernames, and timestamps.
 
-4. **One-Click Deploy & Live Terminal Log Streaming**
-   - Click **Deploy** to execute the pipeline steps in sequence on the host server.
-   - If any step fails (non-zero exit code), the runner immediately halts execution to protect your live service.
-   - Terminal logs stream in real-time over WebSockets with full ANSI color decoding (Docker, Git, and NPM colors rendered cleanly).
-   - Interactive terminal viewer with auto-scroll, copy logs, download log file, and abort controls.
+### 4. ⏰ Scheduled Deployments (Built-in Cron Engine)
+- **Automated Recurring Runs:** Schedule automated deployments on custom timetables (e.g. nightly builds, periodic cache refreshes, database seed syncs).
+- **Flexible Syntax:** Supports standard 5-part cron expressions (`minute hour day month weekday`) and popular aliases (`@daily`, `@weekly`, `@hourly`, `0 */12 * * *`).
+- **Precision Daemon:** Built-in scheduler daemon checks active schedules every 30 seconds with zero external dependencies or cron packages.
 
-5. **Immutable Audit Trail (File + Web UI)**
-   - **Physical File:** Appends formatted lines to `data/logs/audit.log` for direct SSH inspection (`tail -f audit.log`).
-   - **Database & Web UI:** Stores structured audit records in the SQLite `audit_logs` table.
-   - Tracks:
-     - User logins and logout events (including failed login attempts and unapproved access blocks).
-     - User registrations, approvals, rejections, and role changes.
-     - Project registrations, updates, and deletions.
-     - Pipeline step modifications.
-     - Deployment triggers, completions, and cancellations with duration and exit codes.
-     - Client IP address and timestamps.
+### 5. ↺ One-Click Rollback
+- **Instant Recovery:** If a faulty commit or breaking change causes production errors, rollback to any previously verified successful deployment run with 1 click from the Deployment History table.
+- **Safe Re-Deployment:** Re-runs the exact proven steps from that deployment run and records an immutable audit record with `trigger_type: ROLLBACK` and `rollback_from_id`.
 
-6. **Self-Deploying Capability**
-   - Add Varex itself as a project in the UI.
-   - Configure its steps:
-     ```bash
-     git pull origin main
-     npm run build:client
-     npm run build:server
-     pm2 reload varex || systemctl restart varex
-     ```
-   - Click **Deploy** to update the CI/CD platform itself!
+### 6. 📊 VPS & Docker Resource Monitor
+- **Real-Time System Metrics:** Top navigation bar widget displaying live RAM usage percentage, Free Disk space in GB (computed natively via `fs.statfsSync`), CPU cores & load averages, and uptime.
+- **1-Click Docker Prune:** Quick-action modal to run `docker system prune -f`, reclaiming gigabytes of disk space consumed by dangling images, stopped containers, and build cache with output feedback.
+
+### 7. 🛠️ Dual-Mode Pipeline Step Builder
+- **Multiline Shell Script Mode:** Write shell scripts directly as freeform multiline scripts:
+  ```bash
+  git pull origin main
+  npm install
+  npm run build
+  docker compose up -d --build
+  ```
+- **Step-by-Step Command Mode:** Visual step builder with draggable order, step enable/disable toggles, "continue on error" options, and 1-click DevOps command snippets (Git, NPM, Docker, PM2).
+- **Smooth Mode Switching:** Effortlessly switch between script and steps modes with bidirectional parsing.
+
+### 8. 🛡️ Strict Authentication & Role-Based Approval Workflow
+- **Zero Public Endpoints:** Every route, static asset, and WebSocket connection is protected behind secure JWT authentication.
+- **Approval Queue:** New registrations enter a `PENDING_APPROVAL` queue and cannot log in until approved by a Main Administrator.
+- **Hierarchical Roles:** Main Administrators have complete administrative privileges (approving users, managing server settings); Sub Administrators can trigger deployments and view live logs.
+
+### 9. 📜 Immutable Audit Trail
+- **Dual Logging:** Writes human-readable audit lines to physical log files (`data/logs/audit.log`) for SSH tailing (`tail -f audit.log`) and structured JSON to SQLite.
+- **Complete Traceability:** Tracks logins, failed access attempts, approvals, project creation, step edits, deployment triggers, rollbacks, and container actions with user identities and IP addresses.
+
+### 10. 🚀 Self-Deploying Capability
+- Add Varex itself as a project in the dashboard to update and rebuild the platform with zero downtime!
 
 ---
 
-## 🚀 Quickstart
+## 🏗️ Technology Architecture
 
-### 1. Requirements
-- Node.js 20+ or 22+ (Includes built-in `node:sqlite` — no compiler tools or python needed)
-- Git & Docker (installed on host)
+- **Frontend:** React 19, TypeScript, Vite, Tailwind CSS with Neobrutalist design foundations (`#FAF7EE` warm background, `#FACC15` cyber yellow accents, thick 2px solid black borders, and hard drop-shadows).
+- **Backend:** Node.js 22+, Express 4, Native `node:sqlite` (zero native C++ build tools required; automatic WAL mode for high concurrency), and `ws` (WebSockets).
+- **Production Process:** PM2 in `fork` mode (Port `3040`).
+- **Reverse Proxy:** Nginx with Let's Encrypt SSL / Certbot.
 
-### 2. Installation & Build
+---
+
+## 📖 Production VPS Deployment Runbook (Zero Data Loss)
+
+Follow this verified guide to deploy or update Varex on an Ubuntu VPS (e.g. Hostinger, AWS, DigitalOcean) without losing existing databases, users, or configuration.
+
+### 1. Prerequisites
+- Ubuntu 22.04 or 24.04 LTS
+- Node.js 22+ (`node -v`)
+- PM2 (`npm install -g pm2`)
+- Nginx & Certbot
+
 ```bash
-# In repository root:
+# If Node.js is below v22, install Node.js 22 LTS:
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt-get install -y nodejs
+```
+
+---
+
+### 2. Updating an Existing Deployment (Zero Data Loss)
+
+Your SQLite database (`data/varex.db`) and `.env` file contain your live users, projects, and pipeline history. **Never delete the `data/` folder.**
+
+```bash
+# 1. Navigate to the project directory
+cd /var/www/varex
+
+# 2. Pull the latest updates from main
+git pull origin main
+
+# 3. Install dependencies across root, server, and client
+npm run install:all
+
+# 4. Build both frontend and backend
+npm run build
+
+# 5. Ensure folder ownership belongs to your deploy user (e.g. Admin)
+sudo chown -R Admin:Admin /var/www/varex
+
+# 6. Restart PM2 with updated environment variables
+pm2 restart varex-cicd --update-env
+pm2 save
+```
+
+---
+
+### 3. Fresh Installation on a New VPS
+
+```bash
+# 1. Clone the repository
+sudo git clone https://github.com/your-username/varex.git /var/www/varex
+sudo chown -R $USER:$USER /var/www/varex
+cd /var/www/varex
+
+# 2. Install dependencies & build
 npm run install:all
 npm run build
+
+# 3. Configure environment variables
+cp server/.env.example .env
+nano .env
 ```
 
-### 3. Start the Server
-```bash
-npm start
+Set your production `.env` values:
+```env
+PORT=3040
+NODE_ENV=production
+JWT_SECRET=generate-a-strong-32-char-secret-string-here
+DATA_DIR=/var/www/varex/data
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=YourSecurePassword123!
 ```
-By default, the server runs on `http://0.0.0.0:3000`.
-
----
-
-## 🔑 Initial Credentials
-
-On the first startup, the database automatically seeds the initial **Main Administrator**:
-- **Username:** `admin`
-- **Email:** `admin@varex.local`
-- **Password:** `AdminPassword123!`
-
-*(You can customize these via environment variables `ADMIN_USERNAME` and `ADMIN_PASSWORD` before first boot, or change them from the dashboard).*
-
----
-
-## ⚙️ Environment Variables
-
-Create a `.env` file in `server/` or pass them directly:
-
-| Variable | Default | Description |
-| :--- | :--- | :--- |
-| `PORT` | `3000` | Port for the HTTP and WebSocket server |
-| `JWT_SECRET` | `varex-super-secret-jwt-key...` | Cryptographic secret for signing session tokens |
-| `DATA_DIR` | `./data` | Directory for SQLite database (`varex.db`) and logs |
-| `ADMIN_USERNAME`| `admin` | Initial seeded Main Admin username |
-| `ADMIN_PASSWORD`| `AdminPassword123!` | Initial seeded Main Admin password |
-
----
-
-## 🌐 Production VPS Deployment (Behind Caddy or Nginx)
-
-Run the service with **PM2** so it stays running across reboots:
 
 ```bash
-npm install -g pm2
-pm2 start server/dist/index.js --name "varex-hub"
+# 4. Start with PM2 in fork mode
+PORT=3040 pm2 start server/dist/index.js --name varex-cicd
 pm2 save
 pm2 startup
 ```
 
-### Caddyfile (Automatic HTTPS / SSL)
-```caddy
-hub.yourdomain.com {
-    reverse_proxy localhost:3000
+---
+
+### 4. Nginx Reverse Proxy Configuration
+
+Create `/etc/nginx/sites-available/varex`:
+
+```nginx
+server {
+    server_name cicd.yourdomain.com;
+
+    # Client body limit for file uploads / builds
+    client_max_body_size 50M;
+
+    location / {
+        proxy_pass http://127.0.0.1:3040;
+        proxy_http_version 1.1;
+
+        # WebSocket support
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        # Standard proxy headers
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Disable buffering for live streaming logs
+        proxy_buffering off;
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
+    }
 }
 ```
 
-Caddy automatically provisions SSL certificates and handles WebSocket upgrade headers for live log streaming without additional configuration.
+Enable site and test Nginx:
+```bash
+sudo ln -s /etc/nginx/sites-available/varex /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+---
+
+### 5. Hostinger Firewall & Let's Encrypt SSL
+
+1. In the Hostinger VPS panel under **Security $\to$ Firewall**, ensure rules allow:
+   - Port `80` (HTTP) &rarr; `Accept`
+   - Port `443` (HTTPS) &rarr; `Accept`
+   - Port `22` (SSH) &rarr; `Accept`
+2. Obtain SSL certificate with Certbot:
+   ```bash
+   sudo certbot --nginx -d cicd.yourdomain.com
+   ```
+
+---
+
+## 🪝 Configuring GitHub Webhooks
+
+1. Open your project in the Varex dashboard &rarr; click **Project Settings** &rarr; switch to the **Webhooks & Cron** tab.
+2. Toggle **GitHub Webhook Auto-Deploy** to `Active`.
+3. Copy the **Payload URL** (`https://cicd.yourdomain.com/api/webhooks/github/<project-slug>`).
+4. Click **Generate Secret** and copy the secret key.
+5. In your GitHub repository:
+   - Go to **Settings** &rarr; **Webhooks** &rarr; **Add webhook**.
+   - **Payload URL:** Paste the URL copied from Varex.
+   - **Content type:** Select `application/json`.
+   - **Secret:** Paste the secret key.
+   - **Which events would you like to trigger this webhook?:** Select **Just the push event**.
+   - Click **Add webhook**.
+6. Every `git push` to your target branch will now automatically trigger a build in Varex!
+
+---
+
+## ⏰ Configuring Scheduled Deployments (Cron)
+
+In **Project Settings** &rarr; **Webhooks & Cron**:
+1. Toggle **Scheduled Deployments (Cron)** to `Active`.
+2. Enter a standard 5-part cron expression or click one of the quick presets:
+   - `@daily` — Runs midnight every day (`0 0 * * *`)
+   - `@weekly` — Runs midnight every Sunday (`0 0 * * 0`)
+   - `@hourly` — Runs at the start of every hour (`0 * * * *`)
+   - `0 */12 * * *` — Runs every 12 hours
+3. Click **Save Changes**. The Varex internal cron daemon checks every 30 seconds and triggers pipeline runs with badge `⏰ Cron`.
+
+---
+
+## ↺ Rolling Back Deployments
+
+1. Open your project and click the **Deployment History** tab.
+2. Every previous run displays its status (`SUCCESS`, `FAILED`, `RUNNING`) and trigger source (`🪝 Webhook`, `↺ Rollback`, `⏰ Cron`, or `👤 Manual`).
+3. On any successful deployment run, click the yellow **Rollback** button.
+4. Confirm the prompt; Varex will immediately re-run the proven steps from that deployment run and open the live terminal.
 
 ---
 
 ## 📁 Repository Structure
 
 ```text
-d:\varex/
-├── client/              # React 19 + TypeScript + Vite + Tailwind CSS frontend
+varex/
+├── client/                      # React 19 + TypeScript + Vite + Tailwind CSS frontend
 │   ├── src/
-│   │   ├── api/         # Strongly typed API & WebSocket client
-│   │   ├── components/  # Navbar, TerminalViewer, StepEditor, ProjectModal, AuditLogView, UserManagementView
-│   │   └── pages/       # LoginPage, RegisterPage
+│   │   ├── api/                 # Typed API client, WebSockets, Interfaces
+│   │   ├── components/          # Neobrutalist UI Components
+│   │   │   ├── LiveServicesLogViewer.tsx  # Multi-Container Terminals & Container Actions
+│   │   │   ├── SystemResourceWidget.tsx    # Live RAM %, Disk Free GB, Docker Prune
+│   │   │   ├── ProjectModal.tsx            # Settings, Webhooks & Cron configuration
+│   │   │   ├── CreateProjectModal.tsx      # Dual-mode script/steps project creation
+│   │   │   ├── TerminalViewer.tsx          # Real-time ANSI log terminal
+│   │   │   ├── Navbar.tsx                  # Header with system widget & navigation
+│   │   │   └── ...
+│   │   └── pages/               # LoginPage, RegisterPage
 │   └── package.json
-├── server/              # Node.js + Express + WebSocket backend (with built-in node:sqlite)
+├── server/                      # Node.js + Express backend (built-in node:sqlite)
 │   ├── src/
-│   │   ├── db/          # SQLite schema, WAL mode, migrations, initial admin seed
-│   │   ├── services/    # AuditService, AuthService, ProjectService, RunnerService, UserService
-│   │   ├── routes/      # Auth, Users/Approvals, Projects, Deployments, Audit
-│   │   ├── middleware/  # Auth guard, Main Admin role guard
-│   │   ├── websocket.ts # WebSocket connection & log broadcasting manager
-│   │   └── index.ts     # Main server entrypoint (serves static UI & API on port 3000)
+│   │   ├── db/                  # SQLite schema, WAL mode, migrations, admin seeding
+│   │   ├── routes/              # Webhook, System, Deploy, Project, Auth, User, Audit
+│   │   ├── services/            # ScheduleService, RunnerService, ServiceLogService, etc.
+│   │   ├── websocket.ts         # Multi-channel WebSocket broker
+│   │   └── index.ts             # Express HTTP & WS server entrypoint
 │   └── package.json
-├── data/                # Auto-created persistent storage
+├── data/                        # Persistent storage (Never delete in production!)
 │   ├── logs/
-│   │   └── audit.log    # Immutable physical audit log file
-│   └── varex.db         # High-performance SQLite database
-├── package.json         # Unified scripts for build and execution
-└── README.md
+│   │   └── audit.log            # Physical append-only audit log
+│   └── varex.db                 # High-performance SQLite database
+├── pm2.config.cjs               # PM2 configuration in fork mode
+├── nginx.conf.example           # Ready-to-use Nginx reverse proxy configuration
+├── package.json                 # Unified build & lifecycle scripts
+└── README.md                    # Comprehensive documentation
 ```
+
+---
+
+## 🔒 Security Best Practices
+
+1. **Change Default Credentials:** Change the initial Main Admin password immediately upon first login.
+2. **Always Use HTTPS:** Run behind Nginx with Let's Encrypt SSL to encrypt tokens, passwords, and terminal streams.
+3. **Use HMAC Webhook Secrets:** Always generate and configure secrets for GitHub webhooks to prevent spoofed triggers.
+4. **Environment Variables:** Keep sensitive API keys in the **Environment Variables** tab of your project rather than hardcoding them into pipeline scripts.
+
+---
+
+## 📄 License
+MIT License. Built for internal engineering teams and developers who value speed, simplicity, and full operational control.

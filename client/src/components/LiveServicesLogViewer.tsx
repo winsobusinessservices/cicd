@@ -94,6 +94,15 @@ export const LiveServicesLogViewer: React.FC<LiveServicesLogViewerProps> = ({
   const [fullscreenServiceId, setFullscreenServiceId] = useState<number | null>(null);
   const [autoScrollMap, setAutoScrollMap] = useState<Record<number, boolean>>({});
 
+  // Container Quick Actions & Exec state
+  const [actionLoadingMap, setActionLoadingMap] = useState<Record<number, 'restart' | 'stop' | 'start' | null>>({});
+  const [actionFeedbackMap, setActionFeedbackMap] = useState<Record<number, { text: string; success: boolean } | null>>({});
+  const [execModalService, setExecModalService] = useState<ProjectServiceItem | null>(null);
+  const [execCommand, setExecCommand] = useState<string>('ls -la');
+  const [execInContainer, setExecInContainer] = useState<boolean>(true);
+  const [execRunning, setExecRunning] = useState<boolean>(false);
+  const [execOutput, setExecOutput] = useState<{ stdout: string; stderr: string; exitCode: number } | null>(null);
+
   const terminalEndRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
   // 1. Fetch services list on mount or project change
@@ -395,6 +404,57 @@ export const LiveServicesLogViewer: React.FC<LiveServicesLogViewerProps> = ({
     }
   };
 
+  // Container quick actions (restart, stop, start)
+  const handleContainerAction = async (serviceId: number, action: 'restart' | 'stop' | 'start') => {
+    try {
+      setActionLoadingMap((prev) => ({ ...prev, [serviceId]: action }));
+      setActionFeedbackMap((prev) => ({ ...prev, [serviceId]: null }));
+      const res = await api.executeContainerAction(projectId, serviceId, action);
+      setActionFeedbackMap((prev) => ({
+        ...prev,
+        [serviceId]: { text: `${action.toUpperCase()} OK`, success: res.success },
+      }));
+      setTimeout(() => {
+        setActionFeedbackMap((prev) => ({ ...prev, [serviceId]: null }));
+      }, 3500);
+    } catch (err: any) {
+      setActionFeedbackMap((prev) => ({
+        ...prev,
+        [serviceId]: { text: `${action.toUpperCase()} ERR: ${err.message}`, success: false },
+      }));
+    } finally {
+      setActionLoadingMap((prev) => ({ ...prev, [serviceId]: null }));
+    }
+  };
+
+  // Run one-off container or host command
+  const handleRunExec = async () => {
+    if (!execModalService?.id || !execCommand.trim()) return;
+    try {
+      setExecRunning(true);
+      setExecOutput(null);
+      const res = await api.executeContainerCommand(
+        projectId,
+        execModalService.id,
+        execCommand.trim(),
+        execInContainer
+      );
+      setExecOutput({
+        stdout: res.stdout,
+        stderr: res.stderr,
+        exitCode: res.exitCode,
+      });
+    } catch (err: any) {
+      setExecOutput({
+        stdout: '',
+        stderr: err.message,
+        exitCode: 1,
+      });
+    } finally {
+      setExecRunning(false);
+    }
+  };
+
   // Filter terminal lines
   const getRenderLines = (serviceId: number) => {
     const raw = logsMap[serviceId] || '';
@@ -574,6 +634,78 @@ export const LiveServicesLogViewer: React.FC<LiveServicesLogViewerProps> = ({
               {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
             </button>
           </div>
+        </div>
+
+        {/* Container Action Controls & Quick Exec Bar */}
+        <div className="bg-[#12131A] px-4 py-1.5 border-b border-zinc-800 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] font-mono uppercase text-zinc-500 font-bold mr-1">Container:</span>
+
+            {/* Restart */}
+            <button
+              type="button"
+              disabled={Boolean(actionLoadingMap[sId])}
+              onClick={() => handleContainerAction(sId, 'restart')}
+              className="px-2.5 py-1 rounded-md bg-[#262738] hover:bg-[#34354A] text-zinc-200 border border-zinc-700 hover:border-zinc-500 text-[11px] font-bold font-mono inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+              title="Restart Docker container (docker restart)"
+            >
+              <RotateCw className={`w-3 h-3 ${actionLoadingMap[sId] === 'restart' ? 'animate-spin text-amber-400' : ''}`} />
+              <span>Restart</span>
+            </button>
+
+            {/* Stop */}
+            <button
+              type="button"
+              disabled={Boolean(actionLoadingMap[sId])}
+              onClick={() => handleContainerAction(sId, 'stop')}
+              className="px-2.5 py-1 rounded-md bg-[#262738] hover:bg-[#34354A] text-zinc-200 border border-zinc-700 hover:border-zinc-500 text-[11px] font-bold font-mono inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+              title="Stop Docker container (docker stop)"
+            >
+              <Square className={`w-3 h-3 ${actionLoadingMap[sId] === 'stop' ? 'text-rose-400' : ''}`} />
+              <span>Stop</span>
+            </button>
+
+            {/* Start */}
+            <button
+              type="button"
+              disabled={Boolean(actionLoadingMap[sId])}
+              onClick={() => handleContainerAction(sId, 'start')}
+              className="px-2.5 py-1 rounded-md bg-[#262738] hover:bg-[#34354A] text-zinc-200 border border-zinc-700 hover:border-zinc-500 text-[11px] font-bold font-mono inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+              title="Start Docker container (docker start)"
+            >
+              <Play className={`w-3 h-3 ${actionLoadingMap[sId] === 'start' ? 'text-emerald-400' : ''}`} />
+              <span>Start</span>
+            </button>
+
+            {/* Exec Command */}
+            <button
+              type="button"
+              onClick={() => {
+                setExecModalService(service);
+                setExecCommand('ls -la');
+                setExecOutput(null);
+                setExecInContainer(Boolean(service.container_name));
+              }}
+              className="px-2.5 py-1 rounded-md bg-[#FACC15] hover:bg-yellow-400 text-black border border-black text-[11px] font-extrabold font-mono inline-flex items-center gap-1 cursor-pointer transition-colors shadow-[1px_1px_0px_#000]"
+              title="Execute command in container or host directory"
+            >
+              <Terminal className="w-3 h-3" />
+              <span>Exec</span>
+            </button>
+          </div>
+
+          {/* Feedback status pill if any */}
+          {actionFeedbackMap[sId] && (
+            <span
+              className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold animate-fade-in ${
+                actionFeedbackMap[sId]?.success
+                  ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-600/50'
+                  : 'bg-rose-950/80 text-rose-400 border border-rose-600/50'
+              }`}
+            >
+              {actionFeedbackMap[sId]?.text}
+            </span>
+          )}
         </div>
 
         {/* Command info bar on mobile / small screens */}
@@ -1186,6 +1318,130 @@ export const LiveServicesLogViewer: React.FC<LiveServicesLogViewerProps> = ({
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Remote Command Exec Modal */}
+      {execModalService && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-xs overflow-y-auto">
+          <div className="w-full max-w-2xl bg-[#FAF7EE] border-2 border-black rounded-2xl shadow-[6px_6px_0px_#000] p-5 sm:p-6 space-y-4 animate-pop-in text-black">
+            <div className="flex items-center justify-between pb-3 border-b-2 border-black">
+              <div className="flex items-center gap-2">
+                <Terminal className="w-5 h-5 text-black" />
+                <h3 className="font-black text-base text-black">
+                  Execute Command: <span className="font-mono text-blue-700">{execModalService.name}</span>
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setExecModalService(null)}
+                className="p-1.5 rounded-lg border-2 border-black bg-white hover:bg-zinc-100 shadow-[1.5px_1.5px_0px_#000] cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Scope / Location Toggle */}
+            <div className="flex items-center gap-3">
+              <label className="text-xs font-bold text-zinc-700">Execute in:</label>
+              <div className="inline-flex rounded-xl border-2 border-black bg-white p-0.5 shadow-[2px_2px_0px_#000]">
+                <button
+                  type="button"
+                  onClick={() => setExecInContainer(true)}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    execInContainer ? 'bg-[#FACC15] text-black shadow-[1px_1px_0px_#000]' : 'text-zinc-600 hover:text-black'
+                  }`}
+                >
+                  🐳 Container ({execModalService.container_name || execModalService.name})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExecInContainer(false)}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    !execInContainer ? 'bg-[#FACC15] text-black shadow-[1px_1px_0px_#000]' : 'text-zinc-600 hover:text-black'
+                  }`}
+                >
+                  💻 Host Directory
+                </button>
+              </div>
+            </div>
+
+            {/* Quick command presets */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[11px] font-extrabold text-black">Presets:</span>
+              {[
+                'ls -la',
+                'npm test',
+                'npx prisma migrate status',
+                'env',
+                'whoami',
+                'uptime'
+              ].map((cmd) => (
+                <button
+                  key={cmd}
+                  type="button"
+                  onClick={() => setExecCommand(cmd)}
+                  className="px-2 py-0.5 rounded text-[11px] font-mono bg-white border border-black hover:bg-[#FEF08A] cursor-pointer shadow-[1px_1px_0px_#000]"
+                >
+                  {cmd}
+                </button>
+              ))}
+            </div>
+
+            {/* Command Input */}
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono text-zinc-500 font-bold select-none text-xs">$</span>
+                <input
+                  type="text"
+                  value={execCommand}
+                  onChange={(e) => setExecCommand(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !execRunning) handleRunExec();
+                  }}
+                  placeholder="e.g. ls -la or npm test"
+                  className="neo-input font-mono text-xs pl-7 py-2"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleRunExec}
+                disabled={execRunning || !execCommand.trim()}
+                className="neo-btn-yellow px-4 py-2 text-xs flex items-center gap-1.5 cursor-pointer shadow-[2px_2px_0px_#000] shrink-0"
+              >
+                {execRunning ? <RotateCw className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+                <span>{execRunning ? 'Running...' : 'Execute'}</span>
+              </button>
+            </div>
+
+            {/* Output terminal */}
+            {execOutput && (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-extrabold text-black">Execution Result:</span>
+                  <span
+                    className={`px-2 py-0.5 rounded font-mono text-[10px] font-bold border border-black ${
+                      execOutput.exitCode === 0
+                        ? 'bg-[#DCFCE7] text-emerald-800'
+                        : 'bg-[#FEE2E2] text-rose-800'
+                    }`}
+                  >
+                    Exit Code: {execOutput.exitCode}
+                  </span>
+                </div>
+                <div className="rounded-xl border-2 border-black bg-[#0C0D12] p-3 max-h-60 overflow-y-auto font-mono text-xs leading-relaxed select-text shadow-[2px_2px_0px_#000]">
+                  {execOutput.stdout && (
+                    <pre className="text-emerald-400 whitespace-pre-wrap">{execOutput.stdout}</pre>
+                  )}
+                  {execOutput.stderr && (
+                    <pre className="text-rose-400 whitespace-pre-wrap">{execOutput.stderr}</pre>
+                  )}
+                  {!execOutput.stdout && !execOutput.stderr && (
+                    <span className="text-zinc-500 italic">(Command exited with no output)</span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

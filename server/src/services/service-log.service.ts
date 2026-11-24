@@ -376,4 +376,140 @@ export class ServiceLogService {
       active.buffer = [];
     }
   }
+
+  /**
+   * Execute container lifecycle action: restart | stop | start
+   */
+  public static async executeAction(serviceId: number, action: 'restart' | 'stop' | 'start'): Promise<{
+    success: boolean;
+    command: string;
+    stdout: string;
+    stderr: string;
+    durationMs: number;
+  }> {
+    const service = this.getServiceById(serviceId);
+    if (!service) throw new Error(`Service #${serviceId} not found.`);
+
+    const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(service.project_id) as unknown as ProjectRow | undefined;
+    if (!project) throw new Error(`Project #${service.project_id} not found.`);
+
+    let effectiveDir = project.project_path;
+    if (service.working_dir) {
+      effectiveDir = path.isAbsolute(service.working_dir)
+        ? service.working_dir
+        : path.resolve(project.project_path, service.working_dir);
+    }
+
+    const cmdTrim = service.log_command.trim();
+    let actionCmd: string;
+
+    if (cmdTrim.includes('docker compose') || cmdTrim.includes('docker-compose')) {
+      const parts = cmdTrim.split(/\s+/).filter(Boolean);
+      const target = parts[parts.length - 1];
+      const serviceName = (target && !target.startsWith('-')) ? target : service.name.toLowerCase().replace(/\s+/g, '-');
+      actionCmd = `docker compose ${action} ${serviceName}`;
+    } else if (cmdTrim.startsWith('docker logs')) {
+      const parts = cmdTrim.split(/\s+/).filter(Boolean);
+      const target = parts[parts.length - 1];
+      actionCmd = `docker ${action} ${target}`;
+    } else {
+      actionCmd = `docker compose ${action} ${service.name.toLowerCase().replace(/\s+/g, '-')}`;
+    }
+
+    const start = Date.now();
+    return new Promise((resolve, reject) => {
+      let stdout = '';
+      let stderr = '';
+
+      const child = spawn(actionCmd, [], {
+        cwd: effectiveDir,
+        shell: true,
+        env: process.env,
+      });
+
+      child.stdout?.on('data', (d) => { stdout += d.toString(); });
+      child.stderr?.on('data', (d) => { stderr += d.toString(); });
+
+      child.on('close', (code) => {
+        const durationMs = Date.now() - start;
+        if (code === 0) {
+          resolve({ success: true, command: actionCmd, stdout, stderr, durationMs });
+        } else {
+          reject(new Error(`Command failed (exit code ${code}): ${stderr || stdout || 'Unknown error'}`));
+        }
+      });
+
+      child.on('error', (err) => {
+        reject(new Error(`Failed to execute "${actionCmd}": ${err.message}`));
+      });
+    });
+  }
+
+  /**
+   * Run one-off command inside container or in service working directory
+   */
+  public static async executeCommand(serviceId: number, commandToRun: string, inContainer = false): Promise<{
+    exitCode: number;
+    stdout: string;
+    stderr: string;
+    durationMs: number;
+    fullCommand: string;
+  }> {
+    const service = this.getServiceById(serviceId);
+    if (!service) throw new Error(`Service #${serviceId} not found.`);
+
+    const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(service.project_id) as unknown as ProjectRow | undefined;
+    if (!project) throw new Error(`Project #${service.project_id} not found.`);
+
+    let effectiveDir = project.project_path;
+    if (service.working_dir) {
+      effectiveDir = path.isAbsolute(service.working_dir)
+        ? service.working_dir
+        : path.resolve(project.project_path, service.working_dir);
+    }
+
+    let fullCmd = commandToRun.trim();
+    if (inContainer) {
+      const cmdTrim = service.log_command.trim();
+      const parts = cmdTrim.split(/\s+/).filter(Boolean);
+      const target = parts[parts.length - 1];
+      const serviceTarget = (target && !target.startsWith('-')) ? target : service.name.toLowerCase().replace(/\s+/g, '-');
+      fullCmd = `docker compose exec -T ${serviceTarget} ${commandToRun}`;
+    }
+
+    const start = Date.now();
+    return new Promise((resolve) => {
+      let stdout = '';
+      let stderr = '';
+
+      const child = spawn(fullCmd, [], {
+        cwd: effectiveDir,
+        shell: true,
+        env: process.env,
+      });
+
+      child.stdout?.on('data', (d) => { stdout += d.toString(); });
+      child.stderr?.on('data', (d) => { stderr += d.toString(); });
+
+      child.on('close', (code) => {
+        resolve({
+          exitCode: code ?? 0,
+          stdout,
+          stderr,
+          durationMs: Date.now() - start,
+          fullCommand: fullCmd,
+        });
+      });
+
+      child.on('error', (err) => {
+        resolve({
+          exitCode: 1,
+          stdout: '',
+          stderr: err.message,
+          durationMs: Date.now() - start,
+          fullCommand: fullCmd,
+        });
+      });
+    });
+  }
 }
