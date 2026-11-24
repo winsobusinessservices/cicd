@@ -105,6 +105,16 @@ export class WsManager {
     });
   }
 
+  public static getChannelSubscriberCount(channel: string): number {
+    let count = 0;
+    this.clients.forEach((ws) => {
+      if (ws.readyState === WebSocket.OPEN && ws.subscriptions.has(channel)) {
+        count++;
+      }
+    });
+    return count;
+  }
+
   public static broadcastDeployLog(deploymentId: number, data: {
     stream: 'stdout' | 'stderr' | 'system';
     text: string;

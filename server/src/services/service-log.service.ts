@@ -32,11 +32,35 @@ interface ActiveStream {
   status: 'STREAMING' | 'STOPPED' | 'ERROR';
   startedAt: string;
   command: string;
+  lastSubscriberSeenAt: number;
 }
 
 export class ServiceLogService {
   private static activeStreams: Map<number, ActiveStream> = new Map();
   private static maxBufferLines = 1500;
+  private static watchdogTimer: NodeJS.Timeout | null = null;
+  private static idleTimeoutMs = 5 * 60 * 1000; // 5 minutes with 0 viewers
+
+  public static startWatchdog(): void {
+    if (this.watchdogTimer) return;
+    this.watchdogTimer = setInterval(() => {
+      const now = Date.now();
+      this.activeStreams.forEach((stream, serviceId) => {
+        if (stream.status === 'STREAMING') {
+          const viewers = WsManager.getChannelSubscriberCount(`service_log:${serviceId}`);
+          if (viewers > 0) {
+            stream.lastSubscriberSeenAt = now;
+          } else {
+            // 0 viewers: check if idle longer than timeout
+            if (now - stream.lastSubscriberSeenAt > this.idleTimeoutMs) {
+              console.log(`[ServiceLogService] Auto-stopping idle log stream #${serviceId} (0 active viewers for > 5 min).`);
+              this.stopStream(serviceId);
+            }
+          }
+        }
+      });
+    }, 30000);
+  }
 
   /**
    * Get all configured services for a project
@@ -239,12 +263,15 @@ export class ServiceLogService {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
+    this.startWatchdog();
+
     const streamEntry: ActiveStream = {
       process: child,
       buffer,
       status: 'STREAMING',
       startedAt: new Date().toISOString(),
       command,
+      lastSubscriberSeenAt: Date.now(),
     };
     this.activeStreams.set(serviceId, streamEntry);
 

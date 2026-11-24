@@ -147,6 +147,12 @@ export const LiveServicesLogViewer: React.FC<LiveServicesLogViewerProps> = ({
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ action: 'subscribe', channel: `service_log:${activeServiceId}` }));
     }
+
+    return () => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ action: 'unsubscribe', channel: `service_log:${activeServiceId}` }));
+      }
+    };
   }, [activeServiceId, ws]);
 
   // Subscribe to all services when in grid mode
@@ -166,6 +172,16 @@ export const LiveServicesLogViewer: React.FC<LiveServicesLogViewerProps> = ({
           }
         }
       });
+
+      return () => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          services.forEach((s) => {
+            if (s.id) {
+              ws.send(JSON.stringify({ action: 'unsubscribe', channel: `service_log:${s.id}` }));
+            }
+          });
+        }
+      };
     }
   }, [viewMode, services, ws]);
 
