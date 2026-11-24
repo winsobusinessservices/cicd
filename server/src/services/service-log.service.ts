@@ -378,6 +378,99 @@ export class ServiceLogService {
   }
 
   /**
+   * Helper to spawn a shell command and capture stdout, stderr, exitCode, duration
+   */
+  private static runSpawnCommand(cmd: string, cwd: string): Promise<{ exitCode: number; stdout: string; stderr: string; durationMs: number }> {
+    const start = Date.now();
+    return new Promise((resolve) => {
+      let stdout = '';
+      let stderr = '';
+      const child = spawn(cmd, [], {
+        cwd,
+        shell: true,
+        env: process.env,
+      });
+
+      child.stdout?.on('data', (d) => { stdout += d.toString(); });
+      child.stderr?.on('data', (d) => { stderr += d.toString(); });
+
+      child.on('close', (code) => {
+        resolve({
+          exitCode: code ?? 0,
+          stdout,
+          stderr,
+          durationMs: Date.now() - start,
+        });
+      });
+
+      child.on('error', (err) => {
+        resolve({
+          exitCode: 1,
+          stdout: '',
+          stderr: err.message,
+          durationMs: Date.now() - start,
+        });
+      });
+    });
+  }
+
+  /**
+   * Extract the target container/service name from the log command
+   */
+  private static extractTarget(logCommand: string, defaultName: string): string {
+    const parts = logCommand.trim().split(/\s+/).filter(Boolean);
+    let target = '';
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const p = parts[i];
+      if (!p.startsWith('-')) {
+        const prev = i > 0 ? parts[i - 1] : '';
+        if (prev === '--tail' || prev === '-n' || prev === '--since' || prev === '--until' || prev === '-f' || prev === '--file') {
+          continue;
+        }
+        target = p;
+        break;
+      }
+    }
+    return target || defaultName.toLowerCase().replace(/\s+/g, '-');
+  }
+
+  /**
+   * Check if a docker compose file exists in effectiveDir or project root
+   */
+  private static findComposeFile(effectiveDir: string, projectPath: string, logCommand: string): { hasCompose: boolean; fileArg: string } {
+    const fileMatch = logCommand.match(/(?:-f|--file)\s+([^\s]+)/);
+    if (fileMatch) {
+      return { hasCompose: true, fileArg: `-f "${fileMatch[1]}"` };
+    }
+
+    const candidates = [
+      'docker-compose.yml',
+      'docker-compose.yaml',
+      'compose.yml',
+      'compose.yaml',
+      'docker-compose.prod.yml',
+      'docker-compose.dev.yml'
+    ];
+
+    for (const file of candidates) {
+      if (fs.existsSync(path.join(effectiveDir, file))) {
+        return { hasCompose: true, fileArg: '' };
+      }
+    }
+
+    if (effectiveDir !== projectPath) {
+      for (const file of candidates) {
+        const fullPath = path.join(projectPath, file);
+        if (fs.existsSync(fullPath)) {
+          return { hasCompose: true, fileArg: `-f "${fullPath}"` };
+        }
+      }
+    }
+
+    return { hasCompose: false, fileArg: '' };
+  }
+
+  /**
    * Execute container lifecycle action: restart | stop | start
    */
   public static async executeAction(serviceId: number, action: 'restart' | 'stop' | 'start'): Promise<{
@@ -401,48 +494,41 @@ export class ServiceLogService {
     }
 
     const cmdTrim = service.log_command.trim();
-    let actionCmd: string;
+    const target = this.extractTarget(cmdTrim, service.name);
+    const { hasCompose, fileArg } = this.findComposeFile(effectiveDir, project.project_path, cmdTrim);
+    const isDirectDocker = cmdTrim.startsWith('docker logs') || !hasCompose;
 
-    if (cmdTrim.includes('docker compose') || cmdTrim.includes('docker-compose')) {
-      const parts = cmdTrim.split(/\s+/).filter(Boolean);
-      const target = parts[parts.length - 1];
-      const serviceName = (target && !target.startsWith('-')) ? target : service.name.toLowerCase().replace(/\s+/g, '-');
-      actionCmd = `docker compose ${action} ${serviceName}`;
-    } else if (cmdTrim.startsWith('docker logs')) {
-      const parts = cmdTrim.split(/\s+/).filter(Boolean);
-      const target = parts[parts.length - 1];
-      actionCmd = `docker ${action} ${target}`;
-    } else {
-      actionCmd = `docker compose ${action} ${service.name.toLowerCase().replace(/\s+/g, '-')}`;
+    if (isDirectDocker) {
+      const actionCmd = `docker ${action} ${target}`;
+      const res = await this.runSpawnCommand(actionCmd, effectiveDir);
+      if (res.exitCode === 0) {
+        return { success: true, command: actionCmd, stdout: res.stdout, stderr: res.stderr, durationMs: res.durationMs };
+      }
+      throw new Error(`Command failed (exit code ${res.exitCode}): ${res.stderr || res.stdout || 'Unknown error'}`);
     }
 
-    const start = Date.now();
-    return new Promise((resolve, reject) => {
-      let stdout = '';
-      let stderr = '';
+    // Try compose action
+    const composeCmd = `docker compose ${fileArg} ${action} ${target}`.replace(/\s+/g, ' ');
+    const composeRes = await this.runSpawnCommand(composeCmd, effectiveDir);
 
-      const child = spawn(actionCmd, [], {
-        cwd: effectiveDir,
-        shell: true,
-        env: process.env,
-      });
+    if (composeRes.exitCode === 0) {
+      return { success: true, command: composeCmd, stdout: composeRes.stdout, stderr: composeRes.stderr, durationMs: composeRes.durationMs };
+    }
 
-      child.stdout?.on('data', (d) => { stdout += d.toString(); });
-      child.stderr?.on('data', (d) => { stderr += d.toString(); });
+    // Fallback to direct docker action if compose file not found or service name matches container
+    if (
+      composeRes.stderr.includes('no configuration file provided') ||
+      composeRes.stderr.includes('not found') ||
+      composeRes.stderr.includes('No such service')
+    ) {
+      const fallbackCmd = `docker ${action} ${target}`;
+      const fallbackRes = await this.runSpawnCommand(fallbackCmd, effectiveDir);
+      if (fallbackRes.exitCode === 0) {
+        return { success: true, command: fallbackCmd, stdout: fallbackRes.stdout, stderr: fallbackRes.stderr, durationMs: fallbackRes.durationMs };
+      }
+    }
 
-      child.on('close', (code) => {
-        const durationMs = Date.now() - start;
-        if (code === 0) {
-          resolve({ success: true, command: actionCmd, stdout, stderr, durationMs });
-        } else {
-          reject(new Error(`Command failed (exit code ${code}): ${stderr || stdout || 'Unknown error'}`));
-        }
-      });
-
-      child.on('error', (err) => {
-        reject(new Error(`Failed to execute "${actionCmd}": ${err.message}`));
-      });
-    });
+    throw new Error(`Command failed (exit code ${composeRes.exitCode}): ${composeRes.stderr || composeRes.stdout || 'Unknown error'}`);
   }
 
   /**
@@ -468,48 +554,55 @@ export class ServiceLogService {
         : path.resolve(project.project_path, service.working_dir);
     }
 
-    let fullCmd = commandToRun.trim();
-    if (inContainer) {
-      const cmdTrim = service.log_command.trim();
-      const parts = cmdTrim.split(/\s+/).filter(Boolean);
-      const target = parts[parts.length - 1];
-      const serviceTarget = (target && !target.startsWith('-')) ? target : service.name.toLowerCase().replace(/\s+/g, '-');
-      fullCmd = `docker compose exec -T ${serviceTarget} ${commandToRun}`;
+    const cmdTrim = service.log_command.trim();
+
+    if (!inContainer) {
+      const fullCmd = commandToRun.trim();
+      const res = await this.runSpawnCommand(fullCmd, effectiveDir);
+      return {
+        ...res,
+        fullCommand: fullCmd,
+      };
     }
 
-    const start = Date.now();
-    return new Promise((resolve) => {
-      let stdout = '';
-      let stderr = '';
+    // inContainer = true
+    const target = this.extractTarget(cmdTrim, service.name);
+    const { hasCompose, fileArg } = this.findComposeFile(effectiveDir, project.project_path, cmdTrim);
+    const isDirectDocker = cmdTrim.startsWith('docker logs') || !hasCompose;
 
-      const child = spawn(fullCmd, [], {
-        cwd: effectiveDir,
-        shell: true,
-        env: process.env,
-      });
+    // If it's a direct docker container or no compose file was found, use `docker exec -i`
+    if (isDirectDocker) {
+      const fullCmd = `docker exec -i ${target} ${commandToRun.trim()}`;
+      const res = await this.runSpawnCommand(fullCmd, effectiveDir);
+      return {
+        ...res,
+        fullCommand: fullCmd,
+      };
+    }
 
-      child.stdout?.on('data', (d) => { stdout += d.toString(); });
-      child.stderr?.on('data', (d) => { stderr += d.toString(); });
+    // Try `docker compose exec -T`
+    const composeCmd = `docker compose ${fileArg} exec -T ${target} ${commandToRun.trim()}`.replace(/\s+/g, ' ');
+    const composeRes = await this.runSpawnCommand(composeCmd, effectiveDir);
 
-      child.on('close', (code) => {
-        resolve({
-          exitCode: code ?? 0,
-          stdout,
-          stderr,
-          durationMs: Date.now() - start,
-          fullCommand: fullCmd,
-        });
-      });
+    // If docker compose failed because no configuration file or service wasn't found, fallback to `docker exec -i`
+    if (
+      composeRes.exitCode !== 0 &&
+      (composeRes.stderr.includes('no configuration file provided') ||
+       composeRes.stderr.includes('not found') ||
+       composeRes.stderr.includes('No such service') ||
+       composeRes.stderr.includes('no such service'))
+    ) {
+      const fallbackCmd = `docker exec -i ${target} ${commandToRun.trim()}`;
+      const fallbackRes = await this.runSpawnCommand(fallbackCmd, effectiveDir);
+      return {
+        ...fallbackRes,
+        fullCommand: fallbackCmd,
+      };
+    }
 
-      child.on('error', (err) => {
-        resolve({
-          exitCode: 1,
-          stdout: '',
-          stderr: err.message,
-          durationMs: Date.now() - start,
-          fullCommand: fullCmd,
-        });
-      });
-    });
+    return {
+      ...composeRes,
+      fullCommand: composeCmd,
+    };
   }
 }
